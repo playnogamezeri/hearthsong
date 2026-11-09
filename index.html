@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#211b20">
+<meta name="description" content="A quiet personal studio for guitar practice and singing.">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png" type="image/png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Hearthsong — Guitar & Singing Studio</title>
+<style>
+:root{--bg:#171418;--panel:#211d22;--panel2:#2a242a;--line:#40363e;--cream:#f4e9df;--muted:#b8a9ad;--rose:#d99a9e;--gold:#d9b98b;--green:#a9c5ad}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% -15%,#45313a 0,#211b20 42%,#171418 78%);color:var(--cream);font:16px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
+.wrap{max-width:760px;margin:auto;padding:22px 16px 44px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}
+.brand{display:flex;align-items:center;gap:11px}.mark{width:42px;height:42px;border:1px solid #8d686e;border-radius:50%;display:grid;place-items:center;color:var(--gold);font-size:21px}
+h1{font:500 21px/1.1 Georgia,serif;letter-spacing:.04em;margin:0}.sub{color:var(--muted);font-size:11px;letter-spacing:.18em;text-transform:uppercase;margin-top:5px}
+.pill{border:1px solid var(--line);border-radius:30px;padding:7px 11px;color:var(--muted);font-size:11px;letter-spacing:.08em}
+h2{font:500 23px Georgia,serif;margin:0 0 5px}.intro{color:var(--muted);margin:0 0 18px;font-size:14px}
+.card{background:linear-gradient(145deg,rgba(48,39,47,.96),rgba(32,28,33,.96));border:1px solid var(--line);border-radius:19px;padding:17px;margin:13px 0;box-shadow:0 12px 35px #0002}
+.eyebrow{color:var(--gold);font-size:10px;letter-spacing:.19em;text-transform:uppercase;margin-bottom:11px}
+label{display:block;color:var(--muted);font-size:12px;margin:12px 0 6px}
+input[type=text],input[type=url],textarea,select{width:100%;background:#171418;border:1px solid #51434c;color:var(--cream);border-radius:11px;padding:12px;font:inherit;outline:none}
+textarea{min-height:145px;resize:vertical;line-height:1.65}input:focus,textarea:focus,select:focus{border-color:var(--rose)}
+.row{display:flex;gap:9px;align-items:center}.row>*{flex:1;min-width:0}
+button,.filebtn{border:1px solid #6e535b;background:#3a2c34;color:var(--cream);border-radius:12px;padding:11px 13px;font:inherit;font-size:13px;cursor:pointer;text-align:center}
+button.primary{background:var(--rose);color:#271b20;border-color:var(--rose);font-weight:650}
+button.ghost{background:transparent;border-color:var(--line);color:var(--muted)}
+button:active{transform:scale(.98)}
+input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.filebtn{display:block}
+.now{display:flex;gap:14px;align-items:center}.cover{width:76px;height:76px;flex:none;border-radius:14px;background:linear-gradient(135deg,#80545d,#352832);display:grid;place-items:center;font-size:30px;color:#f1d7c5}
+.songname{font:500 21px Georgia,serif;overflow-wrap:anywhere}.artist{color:var(--muted);font-size:12px;margin-top:4px}
+.controls{display:flex;align-items:center;justify-content:center;gap:15px;margin:17px 0 10px}.controls button{border-radius:50%;width:43px;height:43px;padding:0;font-size:17px}.controls .play{width:57px;height:57px;background:var(--rose);color:#24191e;border:0;font-size:22px}
+input[type=range]{width:100%;accent-color:var(--rose)}
+.time{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.tools button{flex:1;min-width:90px}
+.chords{font:500 24px Georgia,serif;letter-spacing:.16em;color:var(--gold);text-align:center;padding:12px 5px;overflow-wrap:anywhere}
+.lyrics{white-space:pre-wrap;text-align:center;font:19px/1.8 Georgia,serif;color:#f1e5df;min-height:45px}
+.note{font-size:12px;color:var(--muted);line-height:1.55}.status{font-size:12px;color:var(--green);min-height:18px;margin-top:8px}
+footer{text-align:center;color:#8e7e84;font-size:11px;margin-top:22px}
+@media(min-width:620px){.grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.grid .card{margin:0}.card{padding:20px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><div class="brand"><div class="mark">♫</div><div><h1>Hearthsong</h1><div class="sub">Guitar & singing studio</div></div></div><div class="pill">YOUR PRACTICE SPACE</div></header>
+<h2>Make a little room for music.</h2>
+<p class="intro">A quiet place to play, sing, and learn one song at a time.</p>
+
+<section class="card">
+ <div class="eyebrow">01 / Choose your music</div>
+ <div class="row">
+  <label class="filebtn" for="localFile">♪ Choose audio from phone</label>
+  <input id="localFile" type="file" accept="audio/*">
+  <button class="ghost" id="showOnline">Use an online audio link</button>
+ </div>
+ <div id="onlineBox" hidden>
+  <label for="audioUrl">Direct audio URL (MP3, M4A, WAV, or stream)</label>
+  <input id="audioUrl" type="url" placeholder="https://example.com/song.mp3">
+  <div class="row" style="margin-top:9px"><button class="primary" id="loadUrl">Load audio</button><button class="ghost" id="cancelUrl">Cancel</button></div>
+  <p class="note">A direct audio-file or stream URL works best. A normal YouTube, Spotify, or Apple Music page link cannot be played here; those services have their own playback restrictions.</p>
+ </div>
+ <div class="status" id="status">Choose a song from your phone to begin.</div>
+</section>
+
+<section class="card">
+ <div class="eyebrow">02 / Now playing</div>
+ <div class="now"><div class="cover">♫</div><div style="min-width:0"><div class="songname" id="songTitle">Your practice song</div><div class="artist" id="songArtist">Acoustic session · take your time</div></div></div>
+ <audio id="audio" preload="metadata"></audio>
+ <div class="controls">
+  <button class="ghost" id="back" aria-label="Back 10 seconds">↶</button>
+  <button class="play" id="play" aria-label="Play">▶</button>
+  <button class="ghost" id="forward" aria-label="Forward 10 seconds">↷</button>
+ </div>
+ <input id="seek" type="range" min="0" max="1000" value="0">
+ <div class="time"><span id="current">0:00</span><span id="duration">0:00</span></div>
+ <div class="tools">
+  <button class="ghost" id="repeat">↻ Repeat: off</button>
+  <button class="ghost" id="slower">− Speed</button>
+  <button class="ghost" id="faster">+ Speed</button>
+  <button class="ghost" id="speed">1.0×</button>
+ </div>
+</section>
+
+<div class="grid">
+ <section class="card">
+  <div class="eyebrow">03 / Guitar chords</div>
+  <label for="chords">Chords for this song</label>
+  <input id="chords" type="text" value="G   D   Em   C" placeholder="Example: G  D  Em  C">
+  <p class="note">Write the chord sequence here. We'll add visual finger-position diagrams in a later version.</p>
+ </section>
+ <section class="card">
+  <div class="eyebrow">04 / Singing lyrics</div>
+  <label for="lyrics">Your lyrics and song sections</label>
+  <textarea id="lyrics" placeholder="Paste or type lyrics you have the right to use…
+
+[Verse]
+Your first line goes here
+Your next line goes here
+
+[Chorus]
+Your chorus goes here"></textarea>
+  <p class="note">Use blank lines to separate verses and chorus. You can edit this whenever you practice.</p>
+ </section>
+</div>
+
+<section class="card">
+ <div class="eyebrow">05 / Your practice view</div>
+ <div class="chords" id="chordView">G　D　Em　C</div>
+ <div class="lyrics" id="lyricView">Your lyrics will appear here.</div>
+ <div class="tools"><button class="ghost" id="save">Save song notes</button><button class="ghost" id="clear">Clear lyrics</button></div>
+ <div class="status" id="saveStatus"></div>
+</section>
+
+<section class="card">
+ <div class="eyebrow">06 / Record your performance</div>
+ <h2 style="font-size:20px;margin-bottom:7px">Capture the moment.</h2>
+ <p class="note">Use your phone's microphone to record your singing and acoustic guitar together. Put the phone nearby in a quiet room for the clearest sound.</p>
+ <div class="row" style="margin-top:13px">
+  <button class="primary" id="recordStart">● Start recording</button>
+  <button class="ghost" id="recordStop" disabled>■ Stop</button>
+ </div>
+ <div class="status" id="recordStatus" aria-live="polite">Microphone is off.</div>
+ <audio id="takeAudio" controls style="width:100%;margin-top:8px;display:none"></audio>
+ <div class="row" style="margin-top:9px" id="takeActions" hidden>
+  <button class="ghost" id="downloadTake">Download recording</button>
+  <button class="ghost" id="discardTake">Discard take</button>
+ </div>
+ <p class="note" style="margin-top:12px">Recording uses your microphone and asks for permission. This first version records the sound reaching your phone's mic; it does not digitally mix the app's audio with your voice. If you play the backing track through a speaker, the mic may pick it up too. Headphones help prevent feedback, but the backing track may not be included in the recording.</p>
+</section>
+
+<footer>Hearthsong · made for slow mornings, honest voices, and acoustic strings.</footer>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const audio=$('audio'); let repeat=false, rate=1, objectUrl=null;
+function fmt(s){if(!Number.isFinite(s))return '0:00';return Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0')}
+function setStatus(t){$('status').textContent=t}
+function loadFile(file){
+ if(!file)return;
+ if(objectUrl)URL.revokeObjectURL(objectUrl);
+ objectUrl=URL.createObjectURL(file); audio.src=objectUrl;
+ $('songTitle').textContent=file.name.replace(/\.[^.]+$/,'');
+ $('songArtist').textContent='Audio from your phone';
+ setStatus('Ready to play · '+file.name);
+ audio.load();
+}
+$('localFile').addEventListener('change',e=>loadFile(e.target.files[0]));
+$('showOnline').onclick=()=>{$('onlineBox').hidden=false};
+$('cancelUrl').onclick=()=>{$('onlineBox').hidden=true};
+$('loadUrl').onclick=()=>{
+ const url=$('audioUrl').value.trim();
+ if(!url){setStatus('Paste a direct audio URL first.');return}
+ try{new URL(url)}catch{setStatus('That does not look like a valid URL.');return}
+ if(objectUrl){URL.revokeObjectURL(objectUrl);objectUrl=null}
+ audio.src=url; $('songTitle').textContent=url.split('/').pop().split('?')[0]||'Online audio';
+ $('songArtist').textContent='Online audio source'; audio.load(); setStatus('Trying to load online audio…');
+};
+$('play').onclick=async()=>{
+ if(!audio.src){setStatus('Choose an audio file or load an online audio URL first.');return}
+ if(audio.paused){try{await audio.play()}catch(e){setStatus('Playback was blocked or the audio source is unavailable. Try another file or URL.')}}else audio.pause();
+};
+audio.addEventListener('play',()=>$('play').textContent='Ⅱ');
+audio.addEventListener('pause',()=>$('play').textContent='▶');
+audio.addEventListener('loadedmetadata',()=>{$('duration').textContent=fmt(audio.duration);setStatus('Audio ready. Enjoy your practice.')});
+audio.addEventListener('timeupdate',()=>{if(Number.isFinite(audio.duration)&&audio.duration>0){$('seek').value=audio.currentTime/audio.duration*1000;$('current').textContent=fmt(audio.currentTime)}});
+audio.addEventListener('ended',()=>{if(repeat){audio.currentTime=0;audio.play()}});
+audio.addEventListener('error',()=>setStatus('Could not play this source. Try a local audio file or a direct audio-file URL.'));
+$('seek').oninput=()=>{if(audio.duration)audio.currentTime=$('seek').value/1000*audio.duration};
+$('back').onclick=()=>{audio.currentTime=Math.max(0,audio.currentTime-10)};
+$('forward').onclick=()=>{if(Number.isFinite(audio.duration))audio.currentTime=Math.min(audio.duration,audio.currentTime+10)};
+$('repeat').onclick=()=>{repeat=!repeat;$('repeat').textContent='↻ Repeat: '+(repeat?'on':'off')};
+function updateSpeed(){audio.playbackRate=rate;$('speed').textContent=rate.toFixed(1)+'×'}
+$('slower').onclick=()=>{rate=Math.max(.5,Math.round((rate-.1)*10)/10);updateSpeed()};
+$('faster').onclick=()=>{rate=Math.min(1.5,Math.round((rate+.1)*10)/10);updateSpeed()};
+$('chords').addEventListener('input',()=>$('chordView').textContent=$('chords').value||'Add your chords');
+$('lyrics').addEventListener('input',()=>$('lyricView').textContent=$('lyrics').value||'Your lyrics will appear here.');
+$('save').onclick=()=>{
+ const data={chords:$('chords').value,lyrics:$('lyrics').value,title:$('songTitle').textContent};
+ try{localStorage.setItem('hearthsong-notes',JSON.stringify(data));$('saveStatus').textContent='Song notes saved on this device.'}
+ catch(e){$('saveStatus').textContent='Could not save notes in this browser.'}
+};
+$('clear').onclick=()=>{$('lyrics').value='';$('lyricView').textContent='Your lyrics will appear here.'};
+try{const d=JSON.parse(localStorage.getItem('hearthsong-notes')||'null');if(d){$('chords').value=d.chords||'';$('lyrics').value=d.lyrics||'';$('chordView').textContent=d.chords||'Add your chords';$('lyricView').textContent=d.lyrics||'Your lyrics will appear here.'}}catch(e){}
+
+// Microphone performance recorder
+let micStream = null, mediaRecorder = null, recordedChunks = [], takeUrl = null;
+const recordStart = $('recordStart'), recordStop = $('recordStop');
+recordStart.onclick = async () => {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+    $('recordStatus').textContent = 'Recording is not supported in this browser or page context. Open Hearthsong in Chrome or Acode Preview and try again.';
+    return;
+  }
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: false}});
+    recordedChunks = [];
+    const mime = ['audio/webm;codecs=opus','audio/webm','audio/mp4'].find(t => MediaRecorder.isTypeSupported(t));
+    mediaRecorder = new MediaRecorder(micStream, mime ? {mimeType:mime} : undefined);
+    mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) recordedChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      const type = mediaRecorder.mimeType || 'audio/webm';
+      const blob = new Blob(recordedChunks, {type});
+      if (takeUrl) URL.revokeObjectURL(takeUrl);
+      takeUrl = URL.createObjectURL(blob);
+      $('takeAudio').src = takeUrl;
+      $('takeAudio').style.display = 'block';
+      $('takeActions').hidden = false;
+      $('recordStatus').textContent = 'Your take is ready. Listen back or download it.';
+      if (micStream) micStream.getTracks().forEach(track => track.stop());
+      micStream = null;
+    };
+    mediaRecorder.start();
+    recordStart.disabled = true;
+    recordStop.disabled = false;
+    $('recordStatus').textContent = 'Recording… sing your heart out.';
+  } catch (err) {
+    $('recordStatus').textContent = err.name === 'NotAllowedError'
+      ? 'Microphone permission was denied. Allow microphone access in your browser settings and try again.'
+      : 'Could not start the microphone. Check your microphone permission and try again.';
+  }
+};
+recordStop.onclick = () => {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  recordStart.disabled = false;
+  recordStop.disabled = true;
+};
+$('downloadTake').onclick = () => {
+  if (!takeUrl) return;
+  const a = document.createElement('a');
+  a.href = takeUrl;
+  a.download = 'hearthsong-practice-take.' + ((mediaRecorder && mediaRecorder.mimeType.includes('mp4')) ? 'mp4' : 'webm');
+  document.body.appendChild(a); a.click(); a.remove();
+};
+$('discardTake').onclick = () => {
+  $('takeAudio').pause(); $('takeAudio').removeAttribute('src'); $('takeAudio').style.display = 'none';
+  $('takeActions').hidden = true;
+  if (takeUrl) URL.revokeObjectURL(takeUrl);
+  takeUrl = null; recordedChunks = [];
+  $('recordStatus').textContent = 'Take discarded. Microphone is off.';
+};
+
+
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(err => console.warn('Offline support unavailable:', err));
+  });
+}
+</script>
+</body>
+</html>
