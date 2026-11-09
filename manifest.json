@@ -2,13 +2,13 @@
   "id": "./",
   "name": "Hearthsong \u2014 Guitar & Singing Studio",
   "short_name": "Hearthsong",
-  "description": "A quiet personal studio for guitar practice and singing.",
+  "description": "A clean, simple studio for guitar practice and singing.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#171418",
-  "theme_color": "#211b20",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
   "icons": [
     {
       "src": "icon-192.png",

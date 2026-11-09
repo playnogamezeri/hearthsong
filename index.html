@@ -3,44 +3,49 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#211b20">
+<meta name="theme-color" content="#ffffff">
 <meta name="description" content="A quiet personal studio for guitar practice and singing.">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png" type="image/png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Hearthsong — Guitar & Singing Studio</title>
 <style>
-:root{--bg:#171418;--panel:#211d22;--panel2:#2a242a;--line:#40363e;--cream:#f4e9df;--muted:#b8a9ad;--rose:#d99a9e;--gold:#d9b98b;--green:#a9c5ad}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% -15%,#45313a 0,#211b20 42%,#171418 78%);color:var(--cream);font:16px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
+:root{--bg:#ffffff;--panel:#ffffff;--panel2:#f4fbfa;--line:#d9e7e5;--ink:#111817;--muted:#62716f;--teal:#168f88;--teal-dark:#08756f;--soft:#e9f6f4;--good:#16805f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
 .wrap{max-width:760px;margin:auto;padding:22px 16px 44px}
-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}
-.brand{display:flex;align-items:center;gap:11px}.mark{width:42px;height:42px;border:1px solid #8d686e;border-radius:50%;display:grid;place-items:center;color:var(--gold);font-size:21px}
-h1{font:500 21px/1.1 Georgia,serif;letter-spacing:.04em;margin:0}.sub{color:var(--muted);font-size:11px;letter-spacing:.18em;text-transform:uppercase;margin-top:5px}
-.pill{border:1px solid var(--line);border-radius:30px;padding:7px 11px;color:var(--muted);font-size:11px;letter-spacing:.08em}
-h2{font:500 23px Georgia,serif;margin:0 0 5px}.intro{color:var(--muted);margin:0 0 18px;font-size:14px}
-.card{background:linear-gradient(145deg,rgba(48,39,47,.96),rgba(32,28,33,.96));border:1px solid var(--line);border-radius:19px;padding:17px;margin:13px 0;box-shadow:0 12px 35px #0002}
-.eyebrow{color:var(--gold);font-size:10px;letter-spacing:.19em;text-transform:uppercase;margin-bottom:11px}
-label{display:block;color:var(--muted);font-size:12px;margin:12px 0 6px}
-input[type=text],input[type=url],textarea,select{width:100%;background:#171418;border:1px solid #51434c;color:var(--cream);border-radius:11px;padding:12px;font:inherit;outline:none}
-textarea{min-height:145px;resize:vertical;line-height:1.65}input:focus,textarea:focus,select:focus{border-color:var(--rose)}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:25px}
+.brand{display:flex;align-items:center;gap:11px}.mark{width:42px;height:42px;border:2px solid var(--teal);border-radius:13px;display:grid;place-items:center;color:var(--teal);font-size:22px;background:var(--soft)}
+h1{font:650 21px/1.1 system-ui,sans-serif;letter-spacing:-.03em;margin:0}.sub{color:var(--muted);font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin-top:5px}
+.pill{border:1px solid var(--line);border-radius:30px;padding:7px 11px;color:var(--muted);font-size:10px;letter-spacing:.08em;background:#fff}
+h2{font:650 23px system-ui,sans-serif;letter-spacing:-.035em;margin:0 0 5px}.intro{color:var(--muted);margin:0 0 18px;font-size:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:17px;margin:13px 0;box-shadow:0 5px 18px rgba(20,70,66,.045)}
+.eyebrow{color:var(--teal-dark);font-size:10px;font-weight:750;letter-spacing:.16em;text-transform:uppercase;margin-bottom:11px}
+label{display:block;color:var(--muted);font-size:12px;font-weight:600;margin:12px 0 6px}
+input[type=text],input[type=url],textarea,select{width:100%;background:#fff;border:1px solid #cbdad8;color:var(--ink);border-radius:10px;padding:12px;font:inherit;outline:none}
+textarea{min-height:145px;resize:vertical;line-height:1.65}input:focus,textarea:focus,select:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(22,143,136,.12)}
 .row{display:flex;gap:9px;align-items:center}.row>*{flex:1;min-width:0}
-button,.filebtn{border:1px solid #6e535b;background:#3a2c34;color:var(--cream);border-radius:12px;padding:11px 13px;font:inherit;font-size:13px;cursor:pointer;text-align:center}
-button.primary{background:var(--rose);color:#271b20;border-color:var(--rose);font-weight:650}
-button.ghost{background:transparent;border-color:var(--line);color:var(--muted)}
-button:active{transform:scale(.98)}
+button,.filebtn{border:1px solid var(--teal);background:var(--teal);color:#fff;border-radius:10px;padding:11px 13px;font:inherit;font-size:13px;font-weight:650;cursor:pointer;text-align:center}
+button.primary{background:var(--teal);color:#fff;border-color:var(--teal)}
+button.ghost{background:#fff;border-color:#cbdad8;color:var(--ink)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:active{transform:scale(.985)}
 input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .filebtn{display:block}
-.now{display:flex;gap:14px;align-items:center}.cover{width:76px;height:76px;flex:none;border-radius:14px;background:linear-gradient(135deg,#80545d,#352832);display:grid;place-items:center;font-size:30px;color:#f1d7c5}
-.songname{font:500 21px Georgia,serif;overflow-wrap:anywhere}.artist{color:var(--muted);font-size:12px;margin-top:4px}
-.controls{display:flex;align-items:center;justify-content:center;gap:15px;margin:17px 0 10px}.controls button{border-radius:50%;width:43px;height:43px;padding:0;font-size:17px}.controls .play{width:57px;height:57px;background:var(--rose);color:#24191e;border:0;font-size:22px}
-input[type=range]{width:100%;accent-color:var(--rose)}
+.now{display:flex;gap:14px;align-items:center}.cover{width:68px;height:68px;flex:none;border-radius:13px;background:var(--soft);border:1px solid #cce7e3;display:grid;place-items:center;font-size:29px;color:var(--teal)}
+.songname{font:650 19px system-ui,sans-serif;overflow-wrap:anywhere}.artist{color:var(--muted);font-size:12px;margin-top:4px}
+.controls{display:flex;align-items:center;justify-content:center;gap:15px;margin:17px 0 10px}.controls button{border-radius:50%;width:43px;height:43px;padding:0;font-size:17px}.controls .play{width:57px;height:57px;background:var(--teal);color:#fff;border:0;font-size:22px}
+input[type=range]{width:100%;accent-color:var(--teal)}
 .time{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
 .tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.tools button{flex:1;min-width:90px}
-.chords{font:500 24px Georgia,serif;letter-spacing:.16em;color:var(--gold);text-align:center;padding:12px 5px;overflow-wrap:anywhere}
-.lyrics{white-space:pre-wrap;text-align:center;font:19px/1.8 Georgia,serif;color:#f1e5df;min-height:45px}
-.note{font-size:12px;color:var(--muted);line-height:1.55}.status{font-size:12px;color:var(--green);min-height:18px;margin-top:8px}
-footer{text-align:center;color:#8e7e84;font-size:11px;margin-top:22px}
+.chords{font:650 24px system-ui,sans-serif;letter-spacing:.12em;color:var(--teal-dark);text-align:center;padding:12px 5px;overflow-wrap:anywhere}
+.lyrics{white-space:pre-wrap;text-align:center;font:19px/1.8 Georgia,serif;color:var(--ink);min-height:45px}
+.note{font-size:12px;color:var(--muted);line-height:1.55}.status{font-size:12px;color:var(--good);min-height:18px;margin-top:8px}
+.yt-frame{position:relative;width:100%;aspect-ratio:16/9;margin-top:14px;border-radius:12px;overflow:hidden;background:#101616}
+.yt-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+footer{text-align:center;color:var(--muted);font-size:11px;margin-top:22px}
+[hidden]{display:none!important}
 @media(min-width:620px){.grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.grid .card{margin:0}.card{padding:20px}}
 </style>
 </head>
@@ -61,7 +66,11 @@ footer{text-align:center;color:#8e7e84;font-size:11px;margin-top:22px}
   <label for="audioUrl">Direct audio URL (MP3, M4A, WAV, or stream)</label>
   <input id="audioUrl" type="url" placeholder="https://example.com/song.mp3">
   <div class="row" style="margin-top:9px"><button class="primary" id="loadUrl">Load audio</button><button class="ghost" id="cancelUrl">Cancel</button></div>
-  <p class="note">A direct audio-file or stream URL works best. A normal YouTube, Spotify, or Apple Music page link cannot be played here; those services have their own playback restrictions.</p>
+  <div style="border-top:1px solid var(--line);margin:16px 0 12px"></div>
+  <label for="youtubeUrl">YouTube video or YouTube Music link</label>
+  <input id="youtubeUrl" type="url" placeholder="https://www.youtube.com/watch?v=...">
+  <button class="primary" id="loadYoutube" style="width:100%;margin-top:9px">Play YouTube video</button>
+  <p class="note">YouTube plays inside its official embedded player with its own controls. Some videos block embedding, and YouTube Music links may not all work. Hearthsong does not extract or download YouTube audio.</p>
  </div>
  <div class="status" id="status">Choose a song from your phone to begin.</div>
 </section>
@@ -70,6 +79,7 @@ footer{text-align:center;color:#8e7e84;font-size:11px;margin-top:22px}
  <div class="eyebrow">02 / Now playing</div>
  <div class="now"><div class="cover">♫</div><div style="min-width:0"><div class="songname" id="songTitle">Your practice song</div><div class="artist" id="songArtist">Acoustic session · take your time</div></div></div>
  <audio id="audio" preload="metadata"></audio>
+ <div class="yt-frame" id="youtubeFrame" hidden></div>
  <div class="controls">
   <button class="ghost" id="back" aria-label="Back 10 seconds">↶</button>
   <button class="play" id="play" aria-label="Play">▶</button>
@@ -136,11 +146,41 @@ Your chorus goes here"></textarea>
 </div>
 <script>
 const $=id=>document.getElementById(id);
-const audio=$('audio'); let repeat=false, rate=1, objectUrl=null;
+const audio=$('audio'); let repeat=false, rate=1, objectUrl=null, youtubeActive=false;
 function fmt(s){if(!Number.isFinite(s))return '0:00';return Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0')}
 function setStatus(t){$('status').textContent=t}
+function showAudioPlayer(){
+ youtubeActive=false;
+ $('youtubeFrame').hidden=true;
+ $('youtubeFrame').innerHTML='';
+ audio.style.display='block';
+ document.querySelectorAll('.controls,#seek,.time,.tools').forEach(el=>el.style.display='');
+}
+function showYoutubePlayer(id){
+ youtubeActive=true;
+ audio.pause(); audio.removeAttribute('src'); audio.load(); audio.style.display='none';
+ document.querySelectorAll('.controls,#seek,.time').forEach(el=>el.style.display='none');
+ // Native HTML audio-only controls do not control YouTube. Keep the speed/repeat controls out of the way too.
+ document.querySelectorAll('.tools').forEach(el=>{if(el.closest('.card') && el.closest('.card').querySelector('#repeat'))el.style.display='none'});
+ $('youtubeFrame').innerHTML='<iframe title="YouTube music player" src="https://www.youtube-nocookie.com/embed/'+id+'?playsinline=1&rel=0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>';
+ $('youtubeFrame').hidden=false;
+ $('songArtist').textContent='YouTube · use the player controls below';
+ setStatus('YouTube player loaded. Press play in the embedded player.');
+}
+function extractYoutubeId(raw){
+ let u; try{u=new URL(raw)}catch{return null}
+ const host=u.hostname.replace(/^www\./,'').toLowerCase();
+ if(host==='youtu.be')return u.pathname.split('/').filter(Boolean)[0]||null;
+ if(['youtube.com','m.youtube.com','music.youtube.com','youtube-nocookie.com'].includes(host)){
+   if(u.searchParams.get('v'))return u.searchParams.get('v');
+   const parts=u.pathname.split('/').filter(Boolean);
+   if(['embed','shorts','live'].includes(parts[0]) && parts[1])return parts[1];
+ }
+ return null;
+}
 function loadFile(file){
  if(!file)return;
+ showAudioPlayer();
  if(objectUrl)URL.revokeObjectURL(objectUrl);
  objectUrl=URL.createObjectURL(file); audio.src=objectUrl;
  $('songTitle').textContent=file.name.replace(/\.[^.]+$/,'');
@@ -155,11 +195,22 @@ $('loadUrl').onclick=()=>{
  const url=$('audioUrl').value.trim();
  if(!url){setStatus('Paste a direct audio URL first.');return}
  try{new URL(url)}catch{setStatus('That does not look like a valid URL.');return}
+ showAudioPlayer();
  if(objectUrl){URL.revokeObjectURL(objectUrl);objectUrl=null}
  audio.src=url; $('songTitle').textContent=url.split('/').pop().split('?')[0]||'Online audio';
  $('songArtist').textContent='Online audio source'; audio.load(); setStatus('Trying to load online audio…');
 };
+$('loadYoutube').onclick=()=>{
+ const raw=$('youtubeUrl').value.trim();
+ if(!raw){setStatus('Paste a YouTube link first.');return}
+ const id=extractYoutubeId(raw);
+ if(!id){setStatus('That link was not recognized. Try a youtube.com/watch, youtu.be, /shorts, or /embed link.');return}
+ if(objectUrl){URL.revokeObjectURL(objectUrl);objectUrl=null}
+ $('songTitle').textContent='YouTube video';
+ showYoutubePlayer(id);
+};
 $('play').onclick=async()=>{
+ if(youtubeActive){setStatus('Use the play button inside the YouTube player.');return}
  if(!audio.src){setStatus('Choose an audio file or load an online audio URL first.');return}
  if(audio.paused){try{await audio.play()}catch(e){setStatus('Playback was blocked or the audio source is unavailable. Try another file or URL.')}}else audio.pause();
 };
@@ -168,7 +219,7 @@ audio.addEventListener('pause',()=>$('play').textContent='▶');
 audio.addEventListener('loadedmetadata',()=>{$('duration').textContent=fmt(audio.duration);setStatus('Audio ready. Enjoy your practice.')});
 audio.addEventListener('timeupdate',()=>{if(Number.isFinite(audio.duration)&&audio.duration>0){$('seek').value=audio.currentTime/audio.duration*1000;$('current').textContent=fmt(audio.currentTime)}});
 audio.addEventListener('ended',()=>{if(repeat){audio.currentTime=0;audio.play()}});
-audio.addEventListener('error',()=>setStatus('Could not play this source. Try a local audio file or a direct audio-file URL.'));
+audio.addEventListener('error',()=>setStatus('Could not play this source. Try another audio file or a direct audio-file URL.'));
 $('seek').oninput=()=>{if(audio.duration)audio.currentTime=$('seek').value/1000*audio.duration};
 $('back').onclick=()=>{audio.currentTime=Math.max(0,audio.currentTime-10)};
 $('forward').onclick=()=>{if(Number.isFinite(audio.duration))audio.currentTime=Math.min(audio.duration,audio.currentTime+10)};
