@@ -686,7 +686,7 @@ class MainActivity : Activity() {
                                     runOnUiThread{popupStatus?.text="Still recording. Lyric matching paused after a recognition error."}
                                 }
                             }
-                        }else if(count<0 && recordingActive){recognitionEnabled=false;recognitionFailed=true}
+                        }else if(count<0 && recordingActive){recognitionEnabled=false;recognitionFailed=true;runOnUiThread{popupStatus?.text="Microphone input stopped. Saving the audio captured so far."};break}
                     }
                 }
                 writeWav(raw,final,sampleRate)
