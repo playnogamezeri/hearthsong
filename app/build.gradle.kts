@@ -2,6 +2,11 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+
+dependencies {
+    implementation("net.java.dev.jna:jna:5.18.1@aar")
+    implementation("com.alphacephei:vosk-android:0.3.75@aar")
+}
 val releaseStorePath = System.getenv("HEARTHSONG_KEYSTORE_PATH")
 val releaseStorePassword = System.getenv("HEARTHSONG_KEYSTORE_PASSWORD")
 val releaseKeyAlias = System.getenv("HEARTHSONG_KEY_ALIAS")
@@ -38,7 +43,7 @@ android {
         applicationId = "com.hearthsong.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
     }
 }
