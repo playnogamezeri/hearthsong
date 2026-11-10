@@ -2,12 +2,12 @@ package com.hearthsong.app
 
 import android.Manifest
 import android.app.Activity
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.media.MediaPlayer
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -36,6 +36,10 @@ class MainActivity : Activity() {
     private lateinit var pitchView: TextView
     private lateinit var library: LinearLayout
     private lateinit var recordButton: Button
+    private lateinit var editorPage: LinearLayout
+    private lateinit var libraryPage: LinearLayout
+    private var player: MediaPlayer? = null
+    private var playingFile: String? = null
     private var speech: SpeechRecognizer? = null
     private var following = false
     private var recorder: MediaRecorder? = null
@@ -50,32 +54,46 @@ class MainActivity : Activity() {
         page.addView(root)
         root.addView(TextView(this).apply { text="♫ Hearthsong"; textSize=26f; setTextColor(teal) })
         root.addView(TextView(this).apply { text="PRIVATE SONGWRITING STUDIO"; textSize=10f; letterSpacing=.14f; setTextColor(Color.GRAY) })
-        titleBox=EditText(this).apply { hint="Song title"; setSingleLine(true) }; root.addView(titleBox)
+        val tabs=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
+        tabs.addView(button("Write"){showPage(false)},LinearLayout.LayoutParams(0,-2,1f))
+        tabs.addView(button("My songs"){showPage(true)},LinearLayout.LayoutParams(0,-2,1f))
+        root.addView(tabs)
+        editorPage=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
+        libraryPage=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;visibility=View.GONE}
+        root.addView(editorPage);root.addView(libraryPage)
+        titleBox=EditText(this).apply { hint="Song title"; setSingleLine(true) }; editorPage.addView(titleBox)
         lyricsBox=EditText(this).apply { hint="Write your original lyrics here…"; minLines=5; gravity=android.view.Gravity.TOP; textSize=17f }
-        root.addView(lyricsBox,LinearLayout.LayoutParams(-1,220))
+        editorPage.addView(lyricsBox,LinearLayout.LayoutParams(-1,220))
         lyricsBox.isVerticalScrollBarEnabled=true
         lyricsBox.setPadding(12,12,12,12)
-        root.addView(button("Save song"){ saveSong(); toast("Saved on this phone.") })
-        root.addView(button("Open lyric-following screen"){ showLyrics() })
+        editorPage.addView(button("Save song"){ saveSong(); toast("Saved on this phone.") })
+        editorPage.addView(button("Open lyric-following screen"){ showLyrics() })
         lyricScroll=ScrollView(this).apply { visibility=View.GONE; setBackgroundColor(Color.rgb(248,252,251)) }
         lyricView=TextView(this).apply { textSize=27f; setTextColor(Color.rgb(20,35,33)); gravity=android.view.Gravity.CENTER; setPadding(14,28,14,300); setLineSpacing(12f,1f) }
-        lyricScroll.addView(lyricView); root.addView(lyricScroll,LinearLayout.LayoutParams(-1,260))
-        pitchView=TextView(this).apply { text="Pitch monitor: waiting"; textSize=12f; setTextColor(Color.GRAY) }; root.addView(pitchView)
-        status=TextView(this).apply { textSize=12f; setTextColor(teal); setPadding(0,6,0,6) }; root.addView(status)
+        lyricScroll.addView(lyricView); editorPage.addView(lyricScroll,LinearLayout.LayoutParams(-1,260))
+        pitchView=TextView(this).apply { text="Pitch monitor: waiting"; textSize=12f; setTextColor(Color.GRAY) }; editorPage.addView(pitchView)
+        status=TextView(this).apply { textSize=12f; setTextColor(teal); setPadding(0,6,0,6) }; editorPage.addView(status)
         val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
         row.addView(button("Follow singing"){ if(following) stopFollowing() else startFollowing() },LinearLayout.LayoutParams(0,-2,1f))
         recordButton=button("Record / stop"){ if(recorder==null) startRecording() else stopRecording() }
         row.addView(recordButton,LinearLayout.LayoutParams(0,-2,1f))
         updateRecordButton(false)
-        root.addView(row)
-        root.addView(button("Back to writing"){ stopFollowing(); lyricScroll.visibility=View.GONE; lyricsBox.visibility=View.VISIBLE })
-        root.addView(TextView(this).apply { text="MY SONGS & TAKES"; textSize=11f; setTextColor(teal); setPadding(0,12,0,4) })
+        editorPage.addView(row)
+        editorPage.addView(button("Back to writing"){ stopFollowing(); lyricScroll.visibility=View.GONE; lyricsBox.visibility=View.VISIBLE })
+        libraryPage.addView(TextView(this).apply { text="MY SONGS & TAKES"; textSize=18f; setTextColor(teal); setPadding(0,12,0,8) })
         library=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
         val listScroll=ScrollView(this).apply { isNestedScrollingEnabled=true; isVerticalScrollBarEnabled=true }
-        listScroll.addView(library); root.addView(listScroll,LinearLayout.LayoutParams(-1,-2))
+        listScroll.addView(library); libraryPage.addView(listScroll,LinearLayout.LayoutParams(-1,-2))
         setContentView(page)
         renderLibrary()
         status.text=if(Build.VERSION.SDK_INT>=31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) "On-device speech recognition is available. No online fallback will be used." else "On-device speech recognition is unavailable. Hearthsong will not send your voice online."
+    }
+
+    private fun showPage(showLibrary:Boolean){
+        if(!::editorPage.isInitialized)return
+        editorPage.visibility=if(showLibrary)View.GONE else View.VISIBLE
+        libraryPage.visibility=if(showLibrary)View.VISIBLE else View.GONE
+        if(showLibrary)renderLibrary()
     }
 
     private fun button(label:String, action:()->Unit)=Button(this).apply { text=label; isAllCaps=false; setTextColor(teal); setOnClickListener{action()} }
@@ -109,8 +127,24 @@ class MainActivity : Activity() {
         val takes=filesDir.listFiles()?.filter{it.name.startsWith("take_")&&it.extension=="m4a"}?: emptyList()
         library.addView(TextView(this).apply{text="Saved recordings: "+takes.size; textSize=12f; setTextColor(Color.GRAY)})
         takes.sortedByDescending{it.lastModified()}.forEach{file->
-            library.addView(button("▶ "+file.name){try{startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(android.net.Uri.fromFile(file),"audio/mp4").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))}catch(_:Exception){toast("No audio player found.")}})
+            library.addView(button(if(playingFile==file.absolutePath && player?.isPlaying==true) "Ⅱ  "+file.name else "▶  "+file.name){playTake(file)})
         }
+    }
+
+    private fun playTake(file:java.io.File){
+        try{
+            if(playingFile==file.absolutePath && player?.isPlaying==true){
+                player?.pause();renderLibrary();return
+            }
+            player?.release();player=null
+            player=MediaPlayer().apply{
+                setDataSource(file.absolutePath)
+                setOnCompletionListener{it.release();player=null;playingFile=null;renderLibrary()}
+                prepare();start()
+            }
+            playingFile=file.absolutePath
+            renderLibrary()
+        }catch(e:Exception){player?.release();player=null;playingFile=null;toast("Could not play this recording.")}
     }
 
     private fun showLyrics(){
@@ -167,7 +201,17 @@ class MainActivity : Activity() {
             val span=SpannableString(rendered)
             val start=rendered.indexOf("▶  ")
             if(start>=0){val end=(rendered.indexOf('\n',start).let{if(it<0)rendered.length else it});span.setSpan(BackgroundColorSpan(Color.rgb(224,246,242)),start,end,0)}
-            runOnUiThread{lyricView.text=span;lyricScroll.post{lyricScroll.smoothScrollTo(0,best*lyricView.lineHeight)}}
+            runOnUiThread{
+                lyricView.text=span
+                lyricScroll.post{
+                    val layout=lyricView.layout
+                    if(layout!=null){
+                        val lineTop=layout.getLineTop(minOf(best,layout.lineCount-1))+lyricView.paddingTop
+                        val target=(lineTop-lyricScroll.height/2+lyricView.lineHeight/2).coerceAtLeast(0)
+                        lyricScroll.smoothScrollTo(0,target)
+                    }
+                }
+            }
         }
     }
 
@@ -239,5 +283,5 @@ class MainActivity : Activity() {
         if(grantResults.firstOrNull()==PackageManager.PERMISSION_GRANTED){if(requestCode==41)startFollowing();if(requestCode==42)startRecording()}
         else status.text="Microphone permission is needed for this feature."
     }
-    override fun onDestroy(){stopFollowing();if(recorder!=null)stopRecording();super.onDestroy()}
+    override fun onDestroy(){stopFollowing();if(recorder!=null)stopRecording();player?.release();player=null;super.onDestroy()}
 }
