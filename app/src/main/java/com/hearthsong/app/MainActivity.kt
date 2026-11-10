@@ -47,6 +47,10 @@ class MainActivity : Activity() {
     private var playingFile: String? = null
     private var playbackSeek: SeekBar? = null
     private var playbackTime: TextView? = null
+    private var popupPlaybackSeek: SeekBar? = null
+    private var popupPlaybackTime: TextView? = null
+    private var popupPlaybackButton: Button? = null
+    private var popupTakeSpinner: Spinner? = null
     private val playbackTick = object : Runnable {
         override fun run() {
             val p=player
@@ -54,6 +58,9 @@ class MainActivity : Activity() {
                 val position=if(p.isPlaying || !p.isPlaying) p.currentPosition else 0
                 playbackSeek?.let { if(!it.isPressed) it.progress=position }
                 playbackTime?.text=formatTime(position)+" / "+formatTime(p.duration)
+                popupPlaybackSeek?.let { if(!it.isPressed) it.progress=position }
+                popupPlaybackTime?.text=formatTime(position)+" / "+formatTime(p.duration)
+                popupPlaybackButton?.text=if(p.isPlaying) "Ⅱ Pause recording" else "▶ Play recording"
                 handler.postDelayed(this,500)
             }
         }
@@ -215,10 +222,15 @@ class MainActivity : Activity() {
             player?.release();player=null
             player=MediaPlayer().apply{
                 setDataSource(file.absolutePath)
-                setOnCompletionListener{it.release();player=null;playingFile=null;playbackSeek=null;playbackTime=null;handler.removeCallbacks(playbackTick);renderLibrary()}
+                setOnCompletionListener{it.release();player=null;playingFile=null;playbackSeek=null;playbackTime=null;popupPlaybackSeek?.progress=0;popupPlaybackButton?.text="▶ Play recording";popupPlaybackTime?.text="00:00 / 00:00";handler.removeCallbacks(playbackTick);renderLibrary()}
                 prepare();start()
             }
             playingFile=file.absolutePath
+            popupPlaybackSeek?.max=player?.duration?.coerceAtLeast(1)?:1
+            popupPlaybackSeek?.isEnabled=true
+            popupPlaybackTime?.text="00:00 / "+formatTime(player?.duration?:0)
+            popupPlaybackButton?.text="Ⅱ Pause recording"
+            handler.removeCallbacks(playbackTick);handler.post(playbackTick)
             renderLibrary()
         }catch(e:Exception){player?.release();player=null;playingFile=null;toast("Could not play this recording.")}
     }
@@ -239,6 +251,37 @@ class MainActivity : Activity() {
         shell.addView(liveStatus)
         val liveTimer=TextView(this).apply{text="REC  00:00";textSize=16f;setTypeface(null,Typeface.BOLD);setTextColor(Color.rgb(190,45,50));gravity=android.view.Gravity.CENTER;setPadding(4,6,4,6)}
         shell.addView(liveTimer)
+        val takes=filesDir.listFiles()?.filter{it.name.startsWith("take_")&&it.extension=="m4a"}?.sortedByDescending{it.lastModified()}?: emptyList()
+        val playbackPanel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(10,8,10,8);setBackgroundColor(Color.rgb(239,248,246))}
+        playbackPanel.addView(TextView(this).apply{text="YOUR RECORDINGS";textSize=11f;setTextColor(teal);setTypeface(null,Typeface.BOLD)})
+        val takeSpinner=Spinner(this)
+        val takeNames=if(takes.isEmpty()) listOf("No recordings yet") else takes.map{it.name}
+        takeSpinner.adapter=android.widget.ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,takeNames)
+        popupTakeSpinner=takeSpinner
+        playbackPanel.addView(takeSpinner)
+        val playbackSeek=SeekBar(this).apply{max=player?.duration?.coerceAtLeast(1)?:1;progress=player?.currentPosition?:0;isEnabled=player!=null}
+        popupPlaybackSeek=playbackSeek
+        playbackSeek.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
+            override fun onProgressChanged(sb:SeekBar?,progress:Int,fromUser:Boolean){if(fromUser)popupPlaybackTime?.text=formatTime(progress)+" / "+formatTime(player?.duration?:0)}
+            override fun onStartTrackingTouch(sb:SeekBar?){}
+            override fun onStopTrackingTouch(sb:SeekBar?){player?.seekTo(sb?.progress?:0)}
+        })
+        playbackPanel.addView(playbackSeek)
+        val playbackTimeLabel=TextView(this).apply{text="00:00 / "+formatTime(player?.duration?:0);textSize=12f;setTextColor(Color.GRAY);gravity=android.view.Gravity.CENTER}
+        popupPlaybackTime=playbackTimeLabel
+        playbackPanel.addView(playbackTimeLabel)
+        val playbackActions=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
+        val playbackButton=button("▶ Play recording"){ 
+            if(player?.isPlaying==true){player?.pause();popupPlaybackButton?.text="▶ Play recording"}
+            else if(player!=null){player?.start();popupPlaybackButton?.text="Ⅱ Pause recording";handler.removeCallbacks(playbackTick);handler.post(playbackTick)}
+            else if(takes.isNotEmpty()){playTake(takes.getOrNull(takeSpinner.selectedItemPosition)?:takes.first());popupPlaybackSeek?.isEnabled=true;handler.removeCallbacks(playbackTick);handler.post(playbackTick)}
+        }
+        popupPlaybackButton=playbackButton
+        playbackActions.addView(playbackButton,LinearLayout.LayoutParams(0,-2,1f))
+        playbackActions.addView(button("Stop"){player?.stop();player?.release();player=null;playingFile=null;handler.removeCallbacks(playbackTick);popupPlaybackSeek?.progress=0;popupPlaybackSeek?.isEnabled=false;popupPlaybackTime?.text="00:00 / 00:00";popupPlaybackButton?.text="▶ Play recording"},LinearLayout.LayoutParams(0,-2,1f))
+        playbackPanel.addView(playbackActions)
+        shell.addView(playbackPanel)
+        if(takes.isEmpty()) playbackPanel.alpha=0.85f
         val controls=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
         val followControl=button("Start following"){
             if(following){stopFollowing()}else{startFollowing()}
@@ -258,7 +301,7 @@ class MainActivity : Activity() {
         popupLyricText=display
         popupStatus=liveStatus
         popupTimer=liveTimer
-        dialog.setOnDismissListener{if(recorder!=null)stopRecording();stopFollowing();popupLyricScroll=null;popupLyricText=null;popupStatus=null;popupTimer=null;popupFollowButton=null;popupRecordButton=null}
+        dialog.setOnDismissListener{if(recorder!=null)stopRecording();stopFollowing();popupLyricScroll=null;popupLyricText=null;popupStatus=null;popupTimer=null;popupFollowButton=null;popupRecordButton=null;popupPlaybackSeek=null;popupPlaybackTime=null;popupPlaybackButton=null;popupTakeSpinner=null}
         renderActiveLyricLine(false)
     }
 
