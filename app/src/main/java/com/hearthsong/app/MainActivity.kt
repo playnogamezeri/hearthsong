@@ -101,6 +101,7 @@ class MainActivity : Activity() {
     private var lyricLines: List<String> = emptyList()
     private var currentLineIndex = 0
     @Volatile private var recordingActive = false
+    @Volatile private var performanceFinalizing = false
     @Volatile private var recognitionEnabled = true
     @Volatile private var modelLoading = false
     private var performanceAudio: AudioRecord? = null
@@ -144,7 +145,7 @@ class MainActivity : Activity() {
         pitchView=TextView(this).apply { text="Pitch monitor: waiting"; textSize=12f; setTextColor(Color.GRAY) }; editorPage.addView(pitchView)
         status=TextView(this).apply { textSize=12f; setTextColor(teal); setPadding(0,6,0,6) }; editorPage.addView(status)
         val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
-        recordButton=button("Start Performance"){ if(modelLoading){toast("Preparing offline voice recognition…")} else if(recordingActive)stopPerformance() else { showLyrics(); startPerformance() } }
+        recordButton=button("Start Performance"){ if(modelLoading){toast("Preparing offline voice recognition…")} else if(performanceFinalizing){toast("Saving the previous performance…")} else if(recordingActive)stopPerformance() else { showLyrics(); startPerformance() } }
         row.addView(recordButton,LinearLayout.LayoutParams(-1,-2))
         updateRecordButton(false)
         editorPage.addView(row)
@@ -524,7 +525,7 @@ class MainActivity : Activity() {
         shell.addView(playbackPanel)
         if(takes.isEmpty()) playbackPanel.alpha=0.85f
         val controls=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
-        val performanceControl=button("▶ Start Performance"){if(modelLoading)toast("Preparing offline voice recognition…") else if(recordingActive)stopPerformance() else startPerformance()}
+        val performanceControl=button("▶ Start Performance"){if(modelLoading)toast("Preparing offline voice recognition…") else if(performanceFinalizing)toast("Saving the previous performance…") else if(recordingActive)stopPerformance() else startPerformance()}
         popupPerformanceButton=performanceControl
         controls.addView(performanceControl,LinearLayout.LayoutParams(0,-2,2f))
         controls.addView(button("Close"){if(recordingActive)stopPerformance();dialog.dismiss()},LinearLayout.LayoutParams(0,-2,1f))
@@ -567,7 +568,7 @@ class MainActivity : Activity() {
         }
     }
     private fun startPerformance(){
-        if(recordingActive || modelLoading)return
+        if(recordingActive || performanceFinalizing || modelLoading)return
         if(lyricsBox.text.isBlank()){toast("Write or open a song before starting a performance.");return}
         if(popupLyricText==null)showLyrics()
         if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
@@ -641,7 +642,7 @@ class MainActivity : Activity() {
 
     private fun startPerformanceCapture(){
         popupPerformanceButton?.isEnabled=true
-        if(recordingActive)return
+        if(recordingActive || performanceFinalizing)return
         val sampleRate=16000
         val minBuffer=AudioRecord.getMinBufferSize(sampleRate,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT)
         if(minBuffer<=0){popupStatus?.text="Microphone is unavailable on this phone.";return}
@@ -691,7 +692,7 @@ class MainActivity : Activity() {
                 writeWav(raw,final,sampleRate)
                 raw.delete()
                 runOnUiThread{
-                    performanceAudio=null;performanceThread=null;recordingActive=false
+                    performanceAudio=null;performanceThread=null;recordingActive=false;performanceFinalizing=false;performanceFinalizing=false
                     handler.removeCallbacks(timerTick);updateRecordButton(false)
                     popupPerformanceButton?.isEnabled=true;popupPerformanceButton?.text="▶ Start Performance";popupTimer?.text="REC  00:00"
                     popupStatus?.text=if(final.exists())"Performance saved on this phone. "+if(recognitionFailed)"Audio was saved; lyric matching was unavailable." else "Audio and lyric-following session saved." else "Recording could not be saved."
@@ -765,6 +766,7 @@ class MainActivity : Activity() {
     private fun stopPerformance(){
         if(!recordingActive)return
         recordingActive=false
+        performanceFinalizing=true
         recognitionEnabled=false
         try{performanceAudio?.stop()}catch(_:Exception){}
         popupStatus?.text="Finishing and saving your performance…"
