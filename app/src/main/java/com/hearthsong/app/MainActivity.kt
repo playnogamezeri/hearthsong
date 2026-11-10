@@ -3,6 +3,7 @@ package com.hearthsong.app
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
+import android.content.Intent
 import android.graphics.Color
 import android.media.AudioFormat
 import android.media.AudioRecord
