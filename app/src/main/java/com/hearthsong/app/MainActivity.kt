@@ -86,19 +86,8 @@ class MainActivity : Activity() {
     private var currentLineIndex = 0
     private var speech: SpeechRecognizer? = null
     private var following = false
-    private val autoScrollTick = object : Runnable {
-        override fun run() {
-            if (!following || popupLyricText == null) return
-            if (currentLineIndex < lyricLines.lastIndex) {
-                var next = currentLineIndex + 1
-                while (next < lyricLines.lastIndex && lyricLines[next].isBlank()) next++
-                currentLineIndex = next
-                renderActiveLyricLine(true)
-            }
-            if (currentLineIndex < lyricLines.lastIndex) handler.postDelayed(this, 6500)
-            else popupStatus?.text = "Reached the end of the lyrics. Stop or restart following."
-        }
-    }
+    private var lastMatchedLine = -1
+    private var lastRecognizedPhrase = ""
     private var recorder: MediaRecorder? = null
     private var audioRecord: AudioRecord? = null
     @Volatile private var pitchRunning = false
@@ -347,10 +336,10 @@ class MainActivity : Activity() {
         if (popupLyricText == null) showLyrics()
         if (recorder != null) { stopRecording(); popupStatus?.text = "Recording stopped so following can use the microphone." }
         following = true
-        handler.removeCallbacks(autoScrollTick)
-        handler.postDelayed(autoScrollTick, 6500)
+        lastMatchedLine = -1
+        lastRecognizedPhrase = ""
         popupFollowButton?.text = "Stop following"
-        popupStatus?.text = "Slow lyric scrolling started. Voice matching will adjust the highlight when it recognizes your words."
+        popupStatus?.text = "Waiting for your singing. Lyrics move when your words are recognized."
         if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO),41)
             return
@@ -362,12 +351,12 @@ class MainActivity : Activity() {
         try{
             speech=SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
             speech?.setRecognitionListener(object:RecognitionListener{
-                override fun onReadyForSpeech(params:Bundle?){popupStatus?.text="Slow scrolling active · listening on this phone…"}
+                override fun onReadyForSpeech(params:Bundle?){popupStatus?.text="Listening on this phone…"}
                 override fun onBeginningOfSpeech(){popupStatus?.text="I hear you singing…"}
                 override fun onRmsChanged(rmsdB:Float){}
                 override fun onBufferReceived(buffer:ByteArray?){}
                 override fun onEndOfSpeech(){}
-                override fun onError(error:Int){if(following && error!=SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS && error!=SpeechRecognizer.ERROR_CLIENT)restartSpeech() else if(error!=SpeechRecognizer.ERROR_CLIENT){popupStatus?.text="Slow scrolling continues; voice matching stopped.";try{speech?.destroy()}catch(_:Exception){};speech=null}}
+                override fun onError(error:Int){if(following && error!=SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS && error!=SpeechRecognizer.ERROR_CLIENT)restartSpeech() else if(error!=SpeechRecognizer.ERROR_CLIENT){popupStatus?.text="Voice matching stopped. Check microphone permission or offline speech support.";try{speech?.destroy()}catch(_:Exception){};speech=null}}
                 override fun onResults(results:Bundle?){updateLyrics(results);restartSpeech()}
                 override fun onPartialResults(results:Bundle?){updateLyrics(results)}
                 override fun onEvent(eventType:Int,params:Bundle?){}
@@ -392,26 +381,32 @@ class MainActivity : Activity() {
     private fun updateLyrics(bundle:Bundle?){
         val spoken=bundle?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?:return
         if(lyricLines.isEmpty())lyricLines=lyricsBox.text.toString().lines()
-        val tokens=spoken.lowercase().replace(Regex("[^\\p{L}\\p{N} ]")," ").split(Regex("\\s+")).filter{it.length>1}.takeLast(8)
-        if(tokens.isEmpty()||lyricLines.isEmpty())return
-        val first=(currentLineIndex-1).coerceAtLeast(0)
-        val last=(currentLineIndex+5).coerceAtMost(lyricLines.lastIndex)
-        var best=currentLineIndex
+        if(lyricLines.isEmpty())return
+        val normalized=spoken.lowercase().replace(Regex("[^\\p{L}\\p{N} ]")," ").trim()
+        if(normalized.isBlank() || normalized==lastRecognizedPhrase)return
+        lastRecognizedPhrase=normalized
+        val tokens=normalized.split(Regex("\\s+")).filter{it.length>1}.distinct().takeLast(12)
+        if(tokens.isEmpty())return
+        val first=currentLineIndex.coerceAtLeast(0)
+        val last=(currentLineIndex+3).coerceAtMost(lyricLines.lastIndex)
+        var best=-1
         var bestScore=0
         for(index in first..last){
             val words=lyricLines[index].lowercase().replace(Regex("[^\\p{L}\\p{N} ]")," ").split(Regex("\\s+")).filter{it.isNotBlank()}
-            val score=tokens.count{token->words.any{word->word==token||word.startsWith(token)||token.startsWith(word)}}
-            val adjusted=score*10-(index-currentLineIndex).coerceAtLeast(0)
-            if(adjusted>bestScore){bestScore=adjusted;best=index}
+            if(words.isEmpty())continue
+            val score=tokens.count{token->words.any{word->word==token || (token.length>=4 && word.startsWith(token)) || (word.length>=4 && token.startsWith(word))}}
+            val required=if(words.size<=3)1 else 2
+            val adjusted=score*100-(index-currentLineIndex)*8
+            if(score>=required && adjusted>bestScore){bestScore=adjusted;best=index}
         }
-        if(bestScore>=20 && best>currentLineIndex){
+        if(best>=currentLineIndex && best!=lastMatchedLine && bestScore>0){
+            lastMatchedLine=best
             currentLineIndex=best
-            runOnUiThread{renderActiveLyricLine(true);popupStatus?.text="Following your singing…"}
+            runOnUiThread{renderActiveLyricLine(true);popupStatus?.text="Following your singing · line ${best+1}"}
         }
     }
     private fun stopFollowing(){
         following=false
-        handler.removeCallbacks(autoScrollTick)
         try{speech?.stopListening();speech?.destroy()}catch(_:Exception){}
         speech=null; status.text="Lyric following stopped.";popupStatus?.text="Lyric following stopped.";popupFollowButton?.text="Start following"
     }
