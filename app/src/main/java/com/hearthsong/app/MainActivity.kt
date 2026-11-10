@@ -2,10 +2,12 @@ package com.hearthsong.app
 
 import android.Manifest
 import android.app.Activity
+import android.app.Dialog
 import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Typeface
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
@@ -20,6 +22,7 @@ import android.speech.SpeechRecognizer
 import android.text.SpannableString
 import android.text.style.BackgroundColorSpan
 import android.view.View
+import android.animation.ObjectAnimator
 import android.widget.*
 import org.json.JSONArray
 import org.json.JSONObject
@@ -42,6 +45,10 @@ class MainActivity : Activity() {
     private lateinit var libraryPage: LinearLayout
     private var player: MediaPlayer? = null
     private var playingFile: String? = null
+    private var popupLyricScroll: ScrollView? = null
+    private var popupLyricText: TextView? = null
+    private var lyricLines: List<String> = emptyList()
+    private var currentLineIndex = 0
     private var speech: SpeechRecognizer? = null
     private var following = false
     private var recorder: MediaRecorder? = null
@@ -72,7 +79,7 @@ class MainActivity : Activity() {
         editorPage.addView(button("Open lyric-following screen"){ showLyrics() })
         lyricScroll=ScrollView(this).apply { visibility=View.GONE; setBackgroundColor(Color.rgb(248,252,251)) }
         lyricView=TextView(this).apply { textSize=27f; setTextColor(Color.rgb(20,35,33)); gravity=android.view.Gravity.CENTER; setPadding(14,28,14,300); setLineSpacing(12f,1f) }
-        lyricScroll.addView(lyricView); editorPage.addView(lyricScroll,LinearLayout.LayoutParams(-1,260))
+        lyricScroll.addView(lyricView)
         pitchView=TextView(this).apply { text="Pitch monitor: waiting"; textSize=12f; setTextColor(Color.GRAY) }; editorPage.addView(pitchView)
         status=TextView(this).apply { textSize=12f; setTextColor(teal); setPadding(0,6,0,6) }; editorPage.addView(status)
         val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
@@ -161,9 +168,55 @@ class MainActivity : Activity() {
 
     private fun showLyrics(){
         if(lyricsBox.text.isBlank()){toast("Write lyrics first.");return}
-        lyricView.text=lyricsBox.text.toString(); lyricsBox.visibility=View.GONE; lyricScroll.visibility=View.VISIBLE; lyricScroll.scrollTo(0,0)
+        lyricLines=lyricsBox.text.toString().lines()
+        currentLineIndex=0
+        val dialog=Dialog(this)
+        val shell=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(Color.rgb(250,252,251));setPadding(20,18,20,18)}
+        val heading=TextView(this).apply{text=titleBox.text.toString().ifBlank{"Your song"};textSize=22f;setTypeface(null,Typeface.BOLD);setTextColor(Color.rgb(25,55,52));setPadding(4,10,4,14)}
+        shell.addView(heading)
+        val scroll=ScrollView(this).apply{isFillViewport=true;setBackgroundColor(Color.rgb(250,252,251));clipToPadding=false}
+        val display=TextView(this).apply{textSize=26f;gravity=android.view.Gravity.CENTER;setTextColor(Color.rgb(145,158,155));setPadding(20,190,20,250);setLineSpacing(20f,1.08f);text=lyricLines.joinToString("\n\n")}
+        scroll.addView(display,ScrollView.LayoutParams(-1,-2))
+        shell.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
+        val controls=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
+        controls.addView(button("Stop following"){stopFollowing();toast("Lyric following paused.")},LinearLayout.LayoutParams(0,-2,1f))
+        controls.addView(button("Close"){stopFollowing();dialog.dismiss()},LinearLayout.LayoutParams(0,-2,1f))
+        shell.addView(controls)
+        dialog.setContentView(shell)
+        dialog.show()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        dialog.window?.setLayout(-1,-1)
+        popupLyricScroll=scroll
+        popupLyricText=display
+        dialog.setOnDismissListener{popupLyricScroll=null;popupLyricText=null}
+        renderActiveLyricLine(false)
     }
 
+    private fun renderActiveLyricLine(animate:Boolean=true){
+        val display=popupLyricText?:return
+        val scroll=popupLyricScroll?:return
+        if(lyricLines.isEmpty())return
+        val full=lyricLines.joinToString("\n\n")
+        val span=SpannableString(full)
+        var offset=0
+        lyricLines.forEachIndexed{index,line->
+            if(index==currentLineIndex && line.isNotBlank()){
+                span.setSpan(BackgroundColorSpan(Color.rgb(220,244,239)),offset,offset+line.length,0)
+                span.setSpan(android.text.style.ForegroundColorSpan(Color.rgb(15,105,98)),offset,offset+line.length,0)
+                span.setSpan(android.text.style.StyleSpan(Typeface.BOLD),offset,offset+line.length,0)
+            }
+            offset+=line.length+2
+        }
+        display.text=span
+        display.post{
+            val layout=display.layout?:return@post
+            val start=lyricLines.take(currentLineIndex).sumOf{it.length+2}
+            val line=layout.getLineForOffset(start.coerceAtMost((display.text?.length?:1)-1))
+            val target=(layout.getLineTop(line)+display.paddingTop-scroll.height/2+layout.getLineBottom(line)/2).coerceAtLeast(0)
+            if(animate)ObjectAnimator.ofInt(scroll,"scrollY",scroll.scrollY,target).apply{duration=900;start()}
+            else scroll.scrollTo(0,target)
+        }
+    }
     private fun startFollowing(){
         if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO),41);return}
         if(Build.VERSION.SDK_INT<31 || !SpeechRecognizer.isOnDeviceRecognitionAvailable(this)){status.text="On-device speech recognition unavailable. No online service will be used.";return}
@@ -181,7 +234,7 @@ class MainActivity : Activity() {
                 override fun onPartialResults(results:Bundle?){updateLyrics(results)}
                 override fun onEvent(eventType:Int,params:Bundle?){}
             })
-            following=true; startPitchMonitor(); listen()
+            following=true; pitchView.text="Pitch monitor pauses while lyric following uses the microphone."; listen()
         }catch(e:Exception){following=false;status.text="Could not start local speech recognition."}
     }
 
@@ -199,38 +252,28 @@ class MainActivity : Activity() {
 
     private fun updateLyrics(bundle:Bundle?){
         val spoken=bundle?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?:return
-        val lines=lyricsBox.text.toString().lines()
-        val tokens=spoken.lowercase().replace(Regex("[^\\p{L}\\p{N} ]")," ").split(Regex("\\s+")).filter{it.length>2}.takeLast(5)
-        if(tokens.isEmpty())return
-        var best=-1;var scoreBest=0
-        lines.forEachIndexed{index,line->
-            val normalized=line.lowercase().replace(Regex("[^\\p{L}\\p{N} ]")," ")
-            val score=tokens.count{normalized.contains(it)}
-            if(score>scoreBest){scoreBest=score;best=index}
+        if(lyricLines.isEmpty())lyricLines=lyricsBox.text.toString().lines()
+        val tokens=spoken.lowercase().replace(Regex("[^\\p{L}\\p{N} ]")," ").split(Regex("\\s+")).filter{it.length>1}.takeLast(8)
+        if(tokens.isEmpty()||lyricLines.isEmpty())return
+        val first=(currentLineIndex-1).coerceAtLeast(0)
+        val last=(currentLineIndex+5).coerceAtMost(lyricLines.lastIndex)
+        var best=currentLineIndex
+        var bestScore=0
+        for(index in first..last){
+            val words=lyricLines[index].lowercase().replace(Regex("[^\\p{L}\\p{N} ]")," ").split(Regex("\\s+")).filter{it.isNotBlank()}
+            val score=tokens.count{token->words.any{word->word==token||word.startsWith(token)||token.startsWith(word)}}
+            val adjusted=score*10-(index-currentLineIndex).coerceAtLeast(0)
+            if(adjusted>bestScore){bestScore=adjusted;best=index}
         }
-        if(best>=0 && scoreBest>0){
-            val rendered=lines.mapIndexed{index,line->if(index==best)"▶  "+line else line}.joinToString("\n")
-            val span=SpannableString(rendered)
-            val start=rendered.indexOf("▶  ")
-            if(start>=0){val end=(rendered.indexOf('\n',start).let{if(it<0)rendered.length else it});span.setSpan(BackgroundColorSpan(Color.rgb(224,246,242)),start,end,0)}
-            runOnUiThread{
-                lyricView.text=span
-                lyricScroll.post{
-                    val layout=lyricView.layout
-                    if(layout!=null){
-                        val lineTop=layout.getLineTop(minOf(best,layout.lineCount-1))+lyricView.paddingTop
-                        val target=(lineTop-lyricScroll.height/2+lyricView.lineHeight/2).coerceAtLeast(0)
-                        lyricScroll.smoothScrollTo(0,target)
-                    }
-                }
-            }
+        if(bestScore>0 && best!=currentLineIndex){
+            currentLineIndex=best
+            runOnUiThread{renderActiveLyricLine(true)}
         }
     }
-
     private fun stopFollowing(){
         following=false
         try{speech?.stopListening();speech?.destroy()}catch(_:Exception){}
-        speech=null; stopPitchMonitor(); status.text="Lyric following stopped."
+        speech=null; status.text="Lyric following stopped."
     }
 
     private fun startPitchMonitor(){
