@@ -2,7 +2,7 @@
   "id": "./",
   "name": "Hearthsong \u2014 Guitar & Singing Studio",
   "short_name": "Hearthsong",
-  "description": "A clean, simple studio for guitar practice and singing.",
+  "description": "A personal studio to write, record, and save original songs.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
