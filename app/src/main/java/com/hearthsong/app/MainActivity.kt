@@ -48,6 +48,20 @@ class MainActivity : Activity() {
     private var editingSongTitle: String? = null
     private var popupLyricScroll: ScrollView? = null
     private var popupLyricText: TextView? = null
+    private var popupStatus: TextView? = null
+    private var popupFollowButton: Button? = null
+    private var popupRecordButton: Button? = null
+    private var popupTimer: TextView? = null
+    private var recordingStartedAt = 0L
+    private val timerTick = object : Runnable {
+        override fun run() {
+            if (recorder != null) {
+                val seconds = ((System.currentTimeMillis() - recordingStartedAt) / 1000).toInt()
+                popupTimer?.text = String.format(java.util.Locale.US, "REC  %02d:%02d", seconds / 60, seconds % 60)
+                handler.postDelayed(this, 500)
+            }
+        }
+    }
     private var lyricLines: List<String> = emptyList()
     private var currentLineIndex = 0
     private var speech: SpeechRecognizer? = null
@@ -181,14 +195,20 @@ class MainActivity : Activity() {
         val display=TextView(this).apply{textSize=26f;gravity=android.view.Gravity.CENTER;setTextColor(Color.rgb(145,158,155));setPadding(20,190,20,250);setLineSpacing(20f,1.08f);text=lyricLines.joinToString("\n\n")}
         scroll.addView(display,android.widget.FrameLayout.LayoutParams(-1,-2))
         shell.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
+        val liveStatus=TextView(this).apply{text="Ready. Start following or record your performance.";textSize=12f;setTextColor(teal);setPadding(4,8,4,4)}
+        shell.addView(liveStatus)
+        val liveTimer=TextView(this).apply{text="REC  00:00";textSize=16f;setTypeface(null,Typeface.BOLD);setTextColor(Color.rgb(190,45,50));gravity=android.view.Gravity.CENTER;setPadding(4,6,4,6)}
+        shell.addView(liveTimer)
         val controls=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
-        lateinit var followControl:Button
-        followControl=button("Start following"){
-            if(following){stopFollowing();followControl.text="Start following"}
-            else{startFollowing();followControl.text="Stop following"}
+        val followControl=button("Start following"){
+            if(following){stopFollowing()}else{startFollowing()}
         }
+        popupFollowButton=followControl
         controls.addView(followControl,LinearLayout.LayoutParams(0,-2,1f))
-        controls.addView(button("Close"){stopFollowing();dialog.dismiss()},LinearLayout.LayoutParams(0,-2,1f))
+        val popupRecord=button("● Record"){if(recorder==null)startRecording() else stopRecording()}
+        popupRecordButton=popupRecord
+        controls.addView(popupRecord,LinearLayout.LayoutParams(0,-2,1f))
+        controls.addView(button("Close"){if(recorder!=null)stopRecording();stopFollowing();dialog.dismiss()},LinearLayout.LayoutParams(0,-2,1f))
         shell.addView(controls)
         dialog.setContentView(shell)
         dialog.show()
@@ -196,7 +216,9 @@ class MainActivity : Activity() {
         dialog.window?.setLayout(-1,-1)
         popupLyricScroll=scroll
         popupLyricText=display
-        dialog.setOnDismissListener{popupLyricScroll=null;popupLyricText=null}
+        popupStatus=liveStatus
+        popupTimer=liveTimer
+        dialog.setOnDismissListener{if(recorder!=null)stopRecording();stopFollowing();popupLyricScroll=null;popupLyricText=null;popupStatus=null;popupTimer=null;popupFollowButton=null;popupRecordButton=null}
         renderActiveLyricLine(false)
     }
 
@@ -226,6 +248,7 @@ class MainActivity : Activity() {
         }
     }
     private fun startFollowing(){
+        if(recorder!=null){stopRecording();popupStatus?.text="Recording stopped so the microphone can listen for lyrics."}
         if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO),41);return}
         if(Build.VERSION.SDK_INT<31 || !SpeechRecognizer.isOnDeviceRecognitionAvailable(this)){status.text="On-device speech recognition unavailable. No online service will be used.";return}
         if(popupLyricText==null)showLyrics()
@@ -236,13 +259,13 @@ class MainActivity : Activity() {
                 override fun onBeginningOfSpeech(){status.text="I hear you singing…"}
                 override fun onRmsChanged(rmsdB:Float){}
                 override fun onBufferReceived(buffer:ByteArray?){}
-                override fun onEndOfSpeech(){restartSpeech()}
-                override fun onError(error:Int){restartSpeech()}
+                override fun onEndOfSpeech(){}
+                override fun onError(error:Int){if(following && error!=SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS && error!=SpeechRecognizer.ERROR_CLIENT)restartSpeech() else if(error!=SpeechRecognizer.ERROR_CLIENT){popupStatus?.text="Voice following stopped. Check microphone permission.";stopFollowing()}}
                 override fun onResults(results:Bundle?){updateLyrics(results);restartSpeech()}
                 override fun onPartialResults(results:Bundle?){updateLyrics(results)}
                 override fun onEvent(eventType:Int,params:Bundle?){}
             })
-            following=true; pitchView.text="Pitch monitor pauses while lyric following uses the microphone."; listen()
+            following=true; popupStatus?.text="Listening on this phone. Sing clearly; guitar strumming may affect recognition.";popupFollowButton?.text="Stop following";pitchView.text="Pitch monitor pauses while lyric following uses the microphone."; listen()
         }catch(e:Exception){following=false;status.text="Could not start local speech recognition."}
     }
 
@@ -273,15 +296,15 @@ class MainActivity : Activity() {
             val adjusted=score*10-(index-currentLineIndex).coerceAtLeast(0)
             if(adjusted>bestScore){bestScore=adjusted;best=index}
         }
-        if(bestScore>0 && best!=currentLineIndex){
+        if(bestScore>=20 && best>currentLineIndex){
             currentLineIndex=best
-            runOnUiThread{renderActiveLyricLine(true)}
+            runOnUiThread{renderActiveLyricLine(true);popupStatus?.text="Following your singing…"}
         }
     }
     private fun stopFollowing(){
         following=false
         try{speech?.stopListening();speech?.destroy()}catch(_:Exception){}
-        speech=null; status.text="Lyric following stopped."
+        speech=null; status.text="Lyric following stopped.";popupStatus?.text="Lyric following stopped.";popupFollowButton?.text="Start following"
     }
 
     private fun startPitchMonitor(){
@@ -327,18 +350,19 @@ class MainActivity : Activity() {
     }
 
     private fun startRecording(){
+        if(following){stopFollowing();popupStatus?.text="Voice following paused so recording can use the microphone. Voice following and recording cannot run together in this version."}
         if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO),42);return}
         try{
             val file=java.io.File(filesDir,"take_"+System.currentTimeMillis()+".m4a")
             val mr=if(Build.VERSION.SDK_INT>=31)MediaRecorder(this) else MediaRecorder()
             mr.setAudioSource(MediaRecorder.AudioSource.MIC);mr.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);mr.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);mr.setOutputFile(file.absolutePath);mr.prepare();mr.start()
-            recorder=mr;updateRecordButton(true);status.text="Recording locally on this phone…"
+            recorder=mr;recordingStartedAt=System.currentTimeMillis();updateRecordButton(true);popupRecordButton?.text="■ Stop recording";popupStatus?.text="Recording locally on this phone. Voice following is paused.";popupTimer?.text="REC  00:00";handler.removeCallbacks(timerTick);handler.post(timerTick);status.text="Recording locally on this phone…"
         }catch(e:Exception){status.text="Could not start recording: "+(e.message?:"unknown error")}
     }
     private fun stopRecording(){
         try{recorder?.stop();recorder?.reset();recorder?.release();status.text="Recording saved locally.";renderLibrary()}
         catch(_:Exception){status.text="Recording was too short or failed."}
-        recorder=null;updateRecordButton(false)
+        recorder=null;handler.removeCallbacks(timerTick);updateRecordButton(false);popupRecordButton?.text="● Record";popupTimer?.text="REC  00:00";if(popupStatus!=null)popupStatus?.text="Recording saved locally. Tap Start following when ready to use voice following."
     }
 
     override fun onRequestPermissionsResult(requestCode:Int,permissions:Array<out String>,grantResults:IntArray){
