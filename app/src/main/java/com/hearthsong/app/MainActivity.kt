@@ -45,6 +45,19 @@ class MainActivity : Activity() {
     private lateinit var libraryPage: LinearLayout
     private var player: MediaPlayer? = null
     private var playingFile: String? = null
+    private var playbackSeek: SeekBar? = null
+    private var playbackTime: TextView? = null
+    private val playbackTick = object : Runnable {
+        override fun run() {
+            val p=player
+            if(p!=null && playingFile!=null) {
+                val position=if(p.isPlaying || !p.isPlaying) p.currentPosition else 0
+                playbackSeek?.let { if(!it.isPressed) it.progress=position }
+                playbackTime?.text=formatTime(position)+" / "+formatTime(p.duration)
+                handler.postDelayed(this,500)
+            }
+        }
+    }
     private var editingSongTitle: String? = null
     private var popupLyricScroll: ScrollView? = null
     private var popupLyricText: TextView? = null
@@ -155,7 +168,29 @@ class MainActivity : Activity() {
             library.addView(row)
         }
         val takes=filesDir.listFiles()?.filter{it.name.startsWith("take_")&&it.extension=="m4a"}?: emptyList()
-        library.addView(TextView(this).apply{text="Saved recordings: "+takes.size; textSize=12f; setTextColor(Color.GRAY)})
+        library.addView(TextView(this).apply{text="Saved recordings: "+takes.size; textSize=12f; setTextColor(Color.GRAY);setPadding(0,12,0,4)})
+        if(player!=null && playingFile!=null) {
+            val playerPanel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(12,8,12,12);setBackgroundColor(Color.rgb(240,249,247))}
+            playerPanel.addView(TextView(this).apply{text="NOW PLAYING";textSize=11f;setTextColor(teal)})
+            playerPanel.addView(TextView(this).apply{text=java.io.File(playingFile!!).name;textSize=15f;setTextColor(Color.DKGRAY)})
+            val seek=SeekBar(this).apply{max=player?.duration?.coerceAtLeast(1)?:1;progress=player?.currentPosition?:0}
+            playbackSeek=seek
+            seek.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
+                override fun onProgressChanged(sb:SeekBar?,progress:Int,fromUser:Boolean){if(fromUser)playbackTime?.text=formatTime(progress)+" / "+formatTime(player?.duration?:0)}
+                override fun onStartTrackingTouch(sb:SeekBar?){}
+                override fun onStopTrackingTouch(sb:SeekBar?){player?.seekTo(sb?.progress?:0)}
+            })
+            playerPanel.addView(seek)
+            val time=TextView(this).apply{text="00:00 / "+formatTime(player?.duration?:0);textSize=12f;setTextColor(Color.GRAY)}
+            playbackTime=time
+            playerPanel.addView(time)
+            val actions=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
+            actions.addView(button(if(player?.isPlaying==true)"Ⅱ Pause" else "▶ Resume"){if(player?.isPlaying==true)player?.pause() else player?.start();renderLibrary();handler.removeCallbacks(playbackTick);handler.post(playbackTick)},LinearLayout.LayoutParams(0,-2,1f))
+            actions.addView(button("Stop"){player?.release();player=null;playingFile=null;playbackSeek=null;playbackTime=null;handler.removeCallbacks(playbackTick);renderLibrary()},LinearLayout.LayoutParams(0,-2,1f))
+            playerPanel.addView(actions)
+            library.addView(playerPanel)
+            handler.removeCallbacks(playbackTick);handler.post(playbackTick)
+        } else { playbackSeek=null;playbackTime=null;handler.removeCallbacks(playbackTick) }
         takes.sortedByDescending{it.lastModified()}.forEach{file->
             library.addView(button(if(playingFile==file.absolutePath && player?.isPlaying==true) "Ⅱ  "+file.name else "▶  "+file.name){playTake(file)})
         }
@@ -167,6 +202,11 @@ class MainActivity : Activity() {
         prefs.edit().putString("songs",kept.toString()).apply();renderLibrary();toast("Song deleted.")
     }
 
+    private fun formatTime(milliseconds:Int):String {
+        val total=(milliseconds.coerceAtLeast(0)/1000)
+        return String.format(java.util.Locale.US,"%02d:%02d",total/60,total%60)
+    }
+
     private fun playTake(file:java.io.File){
         try{
             if(playingFile==file.absolutePath && player?.isPlaying==true){
@@ -175,7 +215,7 @@ class MainActivity : Activity() {
             player?.release();player=null
             player=MediaPlayer().apply{
                 setDataSource(file.absolutePath)
-                setOnCompletionListener{it.release();player=null;playingFile=null;renderLibrary()}
+                setOnCompletionListener{it.release();player=null;playingFile=null;playbackSeek=null;playbackTime=null;handler.removeCallbacks(playbackTick);renderLibrary()}
                 prepare();start()
             }
             playingFile=file.absolutePath
