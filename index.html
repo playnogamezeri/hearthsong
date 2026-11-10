@@ -100,8 +100,9 @@ footer{text-align:center;color:var(--muted);font-size:11px;margin-top:22px}
  <div id="sourceLinks" class="tools" hidden>
   <button class="ghost" id="findChords">Find chords online ↗</button>
   <button class="ghost" id="findLyrics">Find lyrics online ↗</button>
+  <button class="primary" id="findAzlyrics">Search AZLyrics ↗</button>
  </div>
- <p class="note">Search results provide song identification and source links. Full lyrics and chord charts must come from authorized sources or material you provide; Hearthsong won't copy protected song content from websites.</p>
+ <p class="note">AZLyrics search opens a web search for the selected song and artist, limited to AZLyrics pages. Choose the matching result to read lyrics on AZLyrics. Hearthsong links to the source; it does not copy or scrape the lyrics.</p>
 </section>
 
 <section class="card">
@@ -351,6 +352,12 @@ function openSearchSite(kind){
 }
 $('findChords').onclick=()=>openSearchSite('chords');
 $('findLyrics').onclick=()=>openSearchSite('lyrics');
+$('findAzlyrics').onclick=()=>{
+ const title=$('searchTitle').value.trim()||$('songTitle').textContent;
+ const artist=$('searchArtist').value.trim()||$('songArtist').textContent;
+ const query=encodeURIComponent('site:azlyrics.com/lyrics "'+title+'" "'+artist+'"');
+ window.open('https://www.google.com/search?q='+query,'_blank','noopener');
+};
 $('play').onclick=async()=>{
  if(youtubeActive){setStatus('Use the controls inside the YouTube player.');return}
  if(!audio.src){setStatus('Choose an audio file or load an online audio URL first.');return}
