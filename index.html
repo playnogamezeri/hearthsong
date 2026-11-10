@@ -47,6 +47,17 @@ input[type=range]{width:100%;accent-color:var(--teal)}
 footer{text-align:center;color:var(--muted);font-size:11px;margin-top:22px}
 [hidden]{display:none!important}
 @media(min-width:620px){.grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.grid .card{margin:0}.card{padding:20px}}
+
+.finder-results{display:grid;gap:8px;margin-top:12px}
+.finder-result{border:1px solid var(--line);border-radius:12px;padding:11px;display:flex;gap:10px;align-items:center;justify-content:space-between;background:#fff}
+.finder-result strong{display:block;font-size:13px;color:var(--ink)}
+.finder-result small{display:block;color:var(--muted);font-size:11px}
+.finder-result button{flex:none;padding:8px 10px}
+.timeline-help{background:var(--soft);border:1px solid var(--line);border-radius:11px;padding:11px;color:var(--muted);font-size:12px;line-height:1.55}
+.active-cue{background:var(--soft);border:1px solid #b8ded9;border-radius:13px;padding:15px;margin-top:12px}
+.active-cue .chords{font-size:30px;padding:5px}
+.small-link{color:var(--teal-dark);font-size:12px;font-weight:650;text-decoration:none}
+
 </style>
 </head>
 <body>
@@ -76,7 +87,25 @@ footer{text-align:center;color:var(--muted);font-size:11px;margin-top:22px}
 </section>
 
 <section class="card">
- <div class="eyebrow">02 / Now playing</div>
+ <div class="eyebrow">02 / Song finder</div>
+ <h2 style="font-size:20px">Find your practice song.</h2>
+ <p class="note">Search the music catalog by title and artist, or load a YouTube link to identify its video title.</p>
+ <label for="searchTitle">Song title</label>
+ <input id="searchTitle" type="text" placeholder="Example: Perfect">
+ <label for="searchArtist">Artist</label>
+ <input id="searchArtist" type="text" placeholder="Example: Ed Sheeran">
+ <button class="primary" id="searchSongs" style="width:100%;margin-top:10px">Search songs</button>
+ <div id="finderStatus" class="status" aria-live="polite"></div>
+ <div id="finderResults" class="finder-results"></div>
+ <div id="sourceLinks" class="tools" hidden>
+  <button class="ghost" id="findChords">Find chords online ↗</button>
+  <button class="ghost" id="findLyrics">Find lyrics online ↗</button>
+ </div>
+ <p class="note">Search results provide song identification and source links. Full lyrics and chord charts must come from authorized sources or material you provide; Hearthsong won't copy protected song content from websites.</p>
+</section>
+
+<section class="card">
+ <div class="eyebrow">03 / Now playing</div>
  <div class="now"><div class="cover">♫</div><div style="min-width:0"><div class="songname" id="songTitle">Your practice song</div><div class="artist" id="songArtist">Acoustic session · take your time</div></div></div>
  <audio id="audio" preload="metadata"></audio>
  <div class="yt-frame" id="youtubeFrame" hidden></div>
@@ -86,7 +115,7 @@ footer{text-align:center;color:var(--muted);font-size:11px;margin-top:22px}
   <button class="ghost" id="forward" aria-label="Forward 10 seconds">↷</button>
  </div>
  <input id="seek" type="range" min="0" max="1000" value="0">
- <div class="time"><span id="current">0:00</span><span id="duration">0:00</span></div>
+ <div class="time player-time"><span id="current">0:00</span><span id="duration">0:00</span></div>
  <div class="tools">
   <button class="ghost" id="repeat">↻ Repeat: off</button>
   <button class="ghost" id="slower">− Speed</button>
@@ -97,13 +126,13 @@ footer{text-align:center;color:var(--muted);font-size:11px;margin-top:22px}
 
 <div class="grid">
  <section class="card">
-  <div class="eyebrow">03 / Guitar chords</div>
+  <div class="eyebrow">04 / Guitar chords</div>
   <label for="chords">Chords for this song</label>
   <input id="chords" type="text" value="G   D   Em   C" placeholder="Example: G  D  Em  C">
   <p class="note">Write the chord sequence here. We'll add visual finger-position diagrams in a later version.</p>
  </section>
  <section class="card">
-  <div class="eyebrow">04 / Singing lyrics</div>
+  <div class="eyebrow">05 / Singing lyrics</div>
   <label for="lyrics">Your lyrics and song sections</label>
   <textarea id="lyrics" placeholder="Paste or type lyrics you have the right to use…
 
@@ -118,15 +147,27 @@ Your chorus goes here"></textarea>
 </div>
 
 <section class="card">
- <div class="eyebrow">05 / Your practice view</div>
- <div class="chords" id="chordView">G　D　Em　C</div>
- <div class="lyrics" id="lyricView">Your lyrics will appear here.</div>
+ <div class="eyebrow">06 / Synchronized practice</div>
+ <div class="timeline-help">
+  Add one cue per line using <strong>time | chord | lyric</strong>.<br>
+  Example: <strong>0:00 | G | First lyric line</strong><br>
+  Use <strong>1:12 | D | Next lyric line</strong> for the next change. The current cue follows the audio or YouTube playback clock.
+ </div>
+ <label for="timeline">Timestamped chord and lyric timeline</label>
+ <textarea id="timeline" placeholder="0:00 | G | First lyric line&#10;0:12 | D | Next lyric line&#10;0:24 | Em | Another lyric line&#10;0:36 | C | Chorus begins"></textarea>
+ <div class="tools"><button class="primary" id="applyTimeline">Apply timeline</button><button class="ghost" id="clearTimeline">Clear timeline</button></div>
+ <div class="active-cue">
+  <div class="eyebrow">NOW SING / PLAY</div>
+  <div class="chords" id="chordView">G　D　Em　C</div>
+  <div class="lyrics" id="lyricView">Your current lyric line will appear here.</div>
+  <div class="time"><span id="cueTime">Waiting for playback</span><span id="cueIndex">No cue selected</span></div>
+ </div>
  <div class="tools"><button class="ghost" id="save">Save song notes</button><button class="ghost" id="clear">Clear lyrics</button></div>
  <div class="status" id="saveStatus"></div>
 </section>
 
 <section class="card">
- <div class="eyebrow">06 / Record your performance</div>
+ <div class="eyebrow">07 / Record your performance</div>
  <h2 style="font-size:20px;margin-bottom:7px">Capture the moment.</h2>
  <p class="note">Use your phone's microphone to record your singing and acoustic guitar together. Put the phone nearby in a quiet room for the clearest sound.</p>
  <div class="row" style="margin-top:13px">
@@ -146,78 +187,182 @@ Your chorus goes here"></textarea>
 </div>
 <script>
 const $=id=>document.getElementById(id);
-const audio=$('audio'); let repeat=false, rate=1, objectUrl=null, youtubeActive=false;
+const audio=$('audio');
+let repeat=false, rate=1, objectUrl=null, youtubeActive=false, ytPlayer=null, ytTimer=null, cues=[];
 function fmt(s){if(!Number.isFinite(s))return '0:00';return Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0')}
 function setStatus(t){$('status').textContent=t}
-function showAudioPlayer(){
- youtubeActive=false;
- $('youtubeFrame').hidden=true;
- $('youtubeFrame').innerHTML='';
- audio.style.display='block';
- document.querySelectorAll('.controls,#seek,.time,.tools').forEach(el=>el.style.display='');
+function setFinderStatus(t){$('finderStatus').textContent=t}
+function secondsFromStamp(stamp){
+ const p=stamp.trim().split(':').map(Number);
+ if(p.some(n=>!Number.isFinite(n)))return NaN;
+ if(p.length===2)return p[0]*60+p[1];
+ if(p.length===3)return p[0]*3600+p[1]*60+p[2];
+ return NaN;
 }
-function showYoutubePlayer(id){
+function parseTimeline(){
+ const lines=$('timeline').value.split(/\r?\n/), parsed=[];
+ for(const line of lines){
+  if(!line.trim())continue;
+  const parts=line.split('|');
+  if(parts.length<3)continue;
+  const time=secondsFromStamp(parts[0]);
+  const chord=parts[1].trim();
+  const lyric=parts.slice(2).join('|').trim();
+  if(Number.isFinite(time))parsed.push({time,chord,lyric});
+ }
+ parsed.sort((a,b)=>a.time-b.time);
+ cues=parsed;
+ $('cueIndex').textContent=cues.length+' cue'+(cues.length===1?'':'s')+' loaded';
+ if(!cues.length){$('cueTime').textContent='No valid timestamps';$('chordView').textContent='Add timestamped chords';$('lyricView').textContent='Add timestamped lyrics';return}
+ updateCue(getPlaybackTime());
+}
+function getPlaybackTime(){
+ if(youtubeActive && ytPlayer && typeof ytPlayer.getCurrentTime==='function')return ytPlayer.getCurrentTime()||0;
+ return audio.currentTime||0;
+}
+function updateCue(t){
+ if(!cues.length)return;
+ let active=-1;
+ for(let i=0;i<cues.length;i++){if(t>=cues[i].time)active=i;else break}
+ if(active<0){$('cueTime').textContent='Song intro';$('cueIndex').textContent='Before first cue';return}
+ const cue=cues[active];
+ $('chordView').textContent=cue.chord||'—';
+ $('lyricView').textContent=cue.lyric||'';
+ $('cueTime').textContent='At '+fmt(cue.time);
+ $('cueIndex').textContent='Cue '+(active+1)+' of '+cues.length;
+}
+function stopYoutubeTimer(){if(ytTimer){clearInterval(ytTimer);ytTimer=null}}
+function showAudioPlayer(){
+ youtubeActive=false;stopYoutubeTimer();
+ if(ytPlayer){try{ytPlayer.destroy()}catch(e){}ytPlayer=null}
+ $('youtubeFrame').hidden=true;$('youtubeFrame').innerHTML='';
+ audio.style.display='block';
+ document.querySelectorAll('.controls,#seek,.player-time').forEach(el=>el.style.display='');
+ document.querySelectorAll('.tools').forEach(el=>{if(el.closest('.card')&&el.closest('.card').querySelector('#repeat'))el.style.display=''});
+}
+function startYoutubeApi(id){
  youtubeActive=true;
- audio.pause(); audio.removeAttribute('src'); audio.load(); audio.style.display='none';
- document.querySelectorAll('.controls,#seek,.time').forEach(el=>el.style.display='none');
- // Native HTML audio-only controls do not control YouTube. Keep the speed/repeat controls out of the way too.
- document.querySelectorAll('.tools').forEach(el=>{if(el.closest('.card') && el.closest('.card').querySelector('#repeat'))el.style.display='none'});
- $('youtubeFrame').innerHTML='<iframe title="YouTube music player" src="https://www.youtube-nocookie.com/embed/'+id+'?playsinline=1&rel=0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>';
- $('youtubeFrame').hidden=false;
- $('songArtist').textContent='YouTube · use the player controls below';
- setStatus('YouTube player loaded. Press play in the embedded player.');
+ audio.pause();audio.removeAttribute('src');audio.load();audio.style.display='none';
+ document.querySelectorAll('.controls,#seek,.player-time').forEach(el=>el.style.display='none');
+ document.querySelectorAll('.tools').forEach(el=>{if(el.closest('.card')&&el.closest('.card').querySelector('#repeat'))el.style.display='none'});
+ $('youtubeFrame').innerHTML='<div id="youtubePlayer"></div>';$('youtubeFrame').hidden=false;
+ $('songArtist').textContent='YouTube · loading official player';
+ window.hearthsongPendingVideo=id;
+ if(window.YT&&window.YT.Player){createHearthsongYTPlayer(id)}
+ else if(!document.getElementById('yt-api-script')){
+  const tag=document.createElement('script');tag.id='yt-api-script';tag.src='https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+ }
+ setStatus('Loading YouTube player…');
+}
+window.onYouTubeIframeAPIReady=function(){
+ if(window.hearthsongPendingVideo)createHearthsongYTPlayer(window.hearthsongPendingVideo);
+};
+function createHearthsongYTPlayer(id){
+ if(ytPlayer){try{ytPlayer.destroy()}catch(e){}}
+ ytPlayer=new YT.Player('youtubePlayer',{
+  width:'100%',height:'100%',videoId:id,
+  playerVars:{playsinline:1,rel:0,enablejsapi:1},
+  events:{
+   onReady:function(ev){
+    const info=ev.target.getVideoData?ev.target.getVideoData():{};
+    if(info.title)$('songTitle').textContent=info.title;
+    if(info.author){$('songArtist').textContent=info.author+' · YouTube';$('searchArtist').value=info.author}
+    $('searchTitle').value=$('songTitle').textContent;
+    setStatus('YouTube ready. Playback time will synchronize your timeline.');
+    $('sourceLinks').hidden=false;
+   },
+   onStateChange:function(ev){
+    if(ev.data===YT.PlayerState.PLAYING){
+     stopYoutubeTimer();ytTimer=setInterval(()=>{if(ytPlayer&&ytPlayer.getCurrentTime)updateCue(ytPlayer.getCurrentTime())},180);
+    }else if(ev.data===YT.PlayerState.PAUSED||ev.data===YT.PlayerState.ENDED){stopYoutubeTimer();if(ytPlayer&&ytPlayer.getCurrentTime)updateCue(ytPlayer.getCurrentTime())}
+   },
+   onError:function(){setStatus('This YouTube video cannot be embedded. Try another video or use a local audio file.')}
+  }
+ });
 }
 function extractYoutubeId(raw){
- let u; try{u=new URL(raw)}catch{return null}
+ let u;try{u=new URL(raw)}catch{return null}
  const host=u.hostname.replace(/^www\./,'').toLowerCase();
  if(host==='youtu.be')return u.pathname.split('/').filter(Boolean)[0]||null;
  if(['youtube.com','m.youtube.com','music.youtube.com','youtube-nocookie.com'].includes(host)){
-   if(u.searchParams.get('v'))return u.searchParams.get('v');
-   const parts=u.pathname.split('/').filter(Boolean);
-   if(['embed','shorts','live'].includes(parts[0]) && parts[1])return parts[1];
+  if(u.searchParams.get('v'))return u.searchParams.get('v');
+  const parts=u.pathname.split('/').filter(Boolean);
+  if(['embed','shorts','live'].includes(parts[0])&&parts[1])return parts[1];
  }
  return null;
 }
 function loadFile(file){
- if(!file)return;
- showAudioPlayer();
+ if(!file)return;showAudioPlayer();
  if(objectUrl)URL.revokeObjectURL(objectUrl);
- objectUrl=URL.createObjectURL(file); audio.src=objectUrl;
- $('songTitle').textContent=file.name.replace(/\.[^.]+$/,'');
- $('songArtist').textContent='Audio from your phone';
- setStatus('Ready to play · '+file.name);
- audio.load();
+ objectUrl=URL.createObjectURL(file);audio.src=objectUrl;
+ $('songTitle').textContent=file.name.replace(/\.[^.]+$/,'');$('songArtist').textContent='Audio from your phone';
+ $('searchTitle').value=$('songTitle').textContent;setStatus('Ready to play · '+file.name);audio.load();
 }
 $('localFile').addEventListener('change',e=>loadFile(e.target.files[0]));
 $('showOnline').onclick=()=>{$('onlineBox').hidden=false};
 $('cancelUrl').onclick=()=>{$('onlineBox').hidden=true};
 $('loadUrl').onclick=()=>{
- const url=$('audioUrl').value.trim();
- if(!url){setStatus('Paste a direct audio URL first.');return}
+ const url=$('audioUrl').value.trim();if(!url){setStatus('Paste a direct audio URL first.');return}
  try{new URL(url)}catch{setStatus('That does not look like a valid URL.');return}
- showAudioPlayer();
- if(objectUrl){URL.revokeObjectURL(objectUrl);objectUrl=null}
- audio.src=url; $('songTitle').textContent=url.split('/').pop().split('?')[0]||'Online audio';
- $('songArtist').textContent='Online audio source'; audio.load(); setStatus('Trying to load online audio…');
+ showAudioPlayer();if(objectUrl){URL.revokeObjectURL(objectUrl);objectUrl=null}
+ audio.src=url;$('songTitle').textContent=url.split('/').pop().split('?')[0]||'Online audio';
+ $('songArtist').textContent='Online audio source';audio.load();setStatus('Trying to load online audio…');
 };
 $('loadYoutube').onclick=()=>{
- const raw=$('youtubeUrl').value.trim();
- if(!raw){setStatus('Paste a YouTube link first.');return}
- const id=extractYoutubeId(raw);
- if(!id){setStatus('That link was not recognized. Try a youtube.com/watch, youtu.be, /shorts, or /embed link.');return}
+ const raw=$('youtubeUrl').value.trim();if(!raw){setStatus('Paste a YouTube link first.');return}
+ const id=extractYoutubeId(raw);if(!id){setStatus('YouTube link not recognized. Try a watch, youtu.be, shorts, or embed link.');return}
  if(objectUrl){URL.revokeObjectURL(objectUrl);objectUrl=null}
- $('songTitle').textContent='YouTube video';
- showYoutubePlayer(id);
+ $('songTitle').textContent='YouTube video';startYoutubeApi(id);
 };
+$('searchSongs').onclick=async()=>{
+ const title=$('searchTitle').value.trim(),artist=$('searchArtist').value.trim();
+ if(!title&&!artist){setFinderStatus('Enter a song title or artist.');return}
+ setFinderStatus('Searching music catalog…');$('finderResults').innerHTML='';
+ try{
+  const term=encodeURIComponent([title,artist].filter(Boolean).join(' '));
+  const response=await fetch('https://itunes.apple.com/search?term='+term+'&entity=song&limit=8');
+  if(!response.ok)throw new Error('Catalog request failed');
+  const data=await response.json();
+  if(!data.results||!data.results.length){setFinderStatus('No matching songs found. Try a different spelling.');return}
+  setFinderStatus('Choose the correct recording. Then find its chord and lyric sources.');
+  data.results.forEach(track=>{
+   const row=document.createElement('div');row.className='finder-result';
+   const details=document.createElement('div');
+   const name=document.createElement('strong');name.textContent=track.trackName||'Unknown track';
+   const by=document.createElement('small');by.textContent=(track.artistName||'Unknown artist')+(track.collectionName?' · '+track.collectionName:'');
+   details.append(name,by);
+   const choose=document.createElement('button');choose.className='primary';choose.textContent='Select';
+   choose.onclick=()=>{
+    $('songTitle').textContent=track.trackName||title;$('songArtist').textContent=track.artistName||artist;
+    $('searchTitle').value=track.trackName||title;$('searchArtist').value=track.artistName||artist;
+    $('sourceLinks').hidden=false;setFinderStatus('Selected '+(track.trackName||title)+'. Search for authorized chord and lyric sources below.');
+   };
+   row.append(details,choose);$('finderResults').appendChild(row);
+  });
+ }catch(e){setFinderStatus('Catalog search could not connect. Check your internet and try again.')}
+};
+function openSearchSite(kind){
+ const title=$('searchTitle').value.trim()||$('songTitle').textContent;
+ const artist=$('searchArtist').value.trim()||$('songArtist').textContent;
+ const query=encodeURIComponent(title+' '+artist+' '+(kind==='chords'?'guitar chords':'lyrics'));
+ const url='https://www.google.com/search?q='+query;
+ window.open(url,'_blank','noopener');
+}
+$('findChords').onclick=()=>openSearchSite('chords');
+$('findLyrics').onclick=()=>openSearchSite('lyrics');
 $('play').onclick=async()=>{
- if(youtubeActive){setStatus('Use the play button inside the YouTube player.');return}
+ if(youtubeActive){setStatus('Use the controls inside the YouTube player.');return}
  if(!audio.src){setStatus('Choose an audio file or load an online audio URL first.');return}
- if(audio.paused){try{await audio.play()}catch(e){setStatus('Playback was blocked or the audio source is unavailable. Try another file or URL.')}}else audio.pause();
+ if(audio.paused){try{await audio.play()}catch(e){setStatus('Playback was blocked or the audio source is unavailable.')}}else audio.pause();
 };
 audio.addEventListener('play',()=>$('play').textContent='Ⅱ');
 audio.addEventListener('pause',()=>$('play').textContent='▶');
 audio.addEventListener('loadedmetadata',()=>{$('duration').textContent=fmt(audio.duration);setStatus('Audio ready. Enjoy your practice.')});
-audio.addEventListener('timeupdate',()=>{if(Number.isFinite(audio.duration)&&audio.duration>0){$('seek').value=audio.currentTime/audio.duration*1000;$('current').textContent=fmt(audio.currentTime)}});
+audio.addEventListener('timeupdate',()=>{
+ if(Number.isFinite(audio.duration)&&audio.duration>0){$('seek').value=audio.currentTime/audio.duration*1000;$('current').textContent=fmt(audio.currentTime)}
+ updateCue(audio.currentTime||0);
+});
 audio.addEventListener('ended',()=>{if(repeat){audio.currentTime=0;audio.play()}});
 audio.addEventListener('error',()=>setStatus('Could not play this source. Try another audio file or a direct audio-file URL.'));
 $('seek').oninput=()=>{if(audio.duration)audio.currentTime=$('seek').value/1000*audio.duration};
@@ -229,13 +374,23 @@ $('slower').onclick=()=>{rate=Math.max(.5,Math.round((rate-.1)*10)/10);updateSpe
 $('faster').onclick=()=>{rate=Math.min(1.5,Math.round((rate+.1)*10)/10);updateSpeed()};
 $('chords').addEventListener('input',()=>$('chordView').textContent=$('chords').value||'Add your chords');
 $('lyrics').addEventListener('input',()=>$('lyricView').textContent=$('lyrics').value||'Your lyrics will appear here.');
+$('applyTimeline').onclick=()=>{parseTimeline();$('saveStatus').textContent=cues.length?'Timeline applied. It will follow song playback.':'No valid cues found. Use time | chord | lyric.'};
+$('clearTimeline').onclick=()=>{$('timeline').value='';parseTimeline()};
 $('save').onclick=()=>{
- const data={chords:$('chords').value,lyrics:$('lyrics').value,title:$('songTitle').textContent};
- try{localStorage.setItem('hearthsong-notes',JSON.stringify(data));$('saveStatus').textContent='Song notes saved on this device.'}
+ const data={chords:$('chords').value,lyrics:$('lyrics').value,timeline:$('timeline').value,title:$('songTitle').textContent,artist:$('songArtist').textContent};
+ try{localStorage.setItem('hearthsong-notes',JSON.stringify(data));$('saveStatus').textContent='Song notes and timeline saved on this device.'}
  catch(e){$('saveStatus').textContent='Could not save notes in this browser.'}
 };
 $('clear').onclick=()=>{$('lyrics').value='';$('lyricView').textContent='Your lyrics will appear here.'};
-try{const d=JSON.parse(localStorage.getItem('hearthsong-notes')||'null');if(d){$('chords').value=d.chords||'';$('lyrics').value=d.lyrics||'';$('chordView').textContent=d.chords||'Add your chords';$('lyricView').textContent=d.lyrics||'Your lyrics will appear here.'}}catch(e){}
+try{
+ const d=JSON.parse(localStorage.getItem('hearthsong-notes')||'null');
+ if(d){
+  $('chords').value=d.chords||'';$('lyrics').value=d.lyrics||'';
+  $('chordView').textContent=d.chords||'Add timestamped chords';$('lyricView').textContent=d.lyrics||'Add timestamped lyrics';
+  $('timeline').value=d.timeline||'';$('searchTitle').value=d.title||'';$('searchArtist').value=d.artist||'';
+  if(d.timeline){parseTimeline()}
+ }
+}catch(e){}
 
 // Microphone performance recorder
 let micStream = null, mediaRecorder = null, recordedChunks = [], takeUrl = null;
