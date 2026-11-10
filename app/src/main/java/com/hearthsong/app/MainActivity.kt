@@ -667,7 +667,7 @@ class MainActivity : Activity() {
         popupPerformanceButton?.isEnabled=true
         popupPerformanceButton?.text="■ Stop Performance"
         popupTimer?.text="REC  00:00"
-        popupStatus?.text=if(voskModel!=null)"Recording locally. Lyric matching runs on this same microphone audio." else "Recording locally. Offline lyric matching is unavailable; audio recording will continue."
+        popupStatus?.text=if(voskModel!=null)"Recording locally. Lyric matching runs on this same microphone audio." else if(modelLoading)"Recording locally. Preparing offline lyric matching in the background." else "Recording locally. Offline lyric matching is unavailable; audio recording will continue."
         status.text="Performance recording locally on this phone…"
         handler.removeCallbacks(timerTick);handler.post(timerTick)
         performanceAudio=audio
