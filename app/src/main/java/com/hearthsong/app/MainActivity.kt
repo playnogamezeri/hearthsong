@@ -35,6 +35,7 @@ class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var pitchView: TextView
     private lateinit var library: LinearLayout
+    private lateinit var recordButton: Button
     private var speech: SpeechRecognizer? = null
     private var following = false
     private var recorder: MediaRecorder? = null
@@ -63,7 +64,9 @@ class MainActivity : Activity() {
         status=TextView(this).apply { textSize=12f; setTextColor(teal); setPadding(0,6,0,6) }; root.addView(status)
         val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
         row.addView(button("Follow singing"){ if(following) stopFollowing() else startFollowing() },LinearLayout.LayoutParams(0,-2,1f))
-        row.addView(button("Record / stop"){ if(recorder==null) startRecording() else stopRecording() },LinearLayout.LayoutParams(0,-2,1f))
+        recordButton=button("Record / stop"){ if(recorder==null) startRecording() else stopRecording() }
+        row.addView(recordButton,LinearLayout.LayoutParams(0,-2,1f))
+        updateRecordButton(false)
         root.addView(row)
         root.addView(button("Back to writing"){ stopFollowing(); lyricScroll.visibility=View.GONE; lyricsBox.visibility=View.VISIBLE })
         root.addView(TextView(this).apply { text="MY SONGS & TAKES"; textSize=11f; setTextColor(teal); setPadding(0,12,0,4) })
@@ -77,6 +80,14 @@ class MainActivity : Activity() {
 
     private fun button(label:String, action:()->Unit)=Button(this).apply { text=label; isAllCaps=false; setTextColor(teal); setOnClickListener{action()} }
     private fun toast(s:String)=Toast.makeText(this,s,Toast.LENGTH_SHORT).show()
+
+    private fun updateRecordButton(isRecording:Boolean) {
+        if(!::recordButton.isInitialized)return
+        recordButton.text=if(isRecording) "● RECORDING — STOP" else "Record / stop"
+        recordButton.setTextColor(if(isRecording) Color.WHITE else teal)
+        recordButton.backgroundTintList=android.content.res.ColorStateList.valueOf(if(isRecording) Color.rgb(220,45,55) else Color.rgb(235,248,246))
+        recordButton.isActivated=isRecording
+    }
 
     private fun saveSong() {
         val title=titleBox.text.toString().trim().ifBlank{"Untitled song"}
@@ -214,13 +225,13 @@ class MainActivity : Activity() {
             val file=java.io.File(filesDir,"take_"+System.currentTimeMillis()+".m4a")
             val mr=if(Build.VERSION.SDK_INT>=31)MediaRecorder(this) else MediaRecorder()
             mr.setAudioSource(MediaRecorder.AudioSource.MIC);mr.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);mr.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);mr.setOutputFile(file.absolutePath);mr.prepare();mr.start()
-            recorder=mr;status.text="Recording locally on this phone…"
+            recorder=mr;updateRecordButton(true);status.text="Recording locally on this phone…"
         }catch(e:Exception){status.text="Could not start recording: "+(e.message?:"unknown error")}
     }
     private fun stopRecording(){
         try{recorder?.stop();recorder?.reset();recorder?.release();status.text="Recording saved locally.";renderLibrary()}
         catch(_:Exception){status.text="Recording was too short or failed."}
-        recorder=null
+        recorder=null;updateRecordButton(false)
     }
 
     override fun onRequestPermissionsResult(requestCode:Int,permissions:Array<out String>,grantResults:IntArray){
