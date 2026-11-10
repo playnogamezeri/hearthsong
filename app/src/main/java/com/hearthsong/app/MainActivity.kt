@@ -43,17 +43,22 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val root = LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(16,18,16,14); setBackgroundColor(Color.WHITE) }
+        window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        val page = ScrollView(this).apply { isFillViewport=true; isVerticalScrollBarEnabled=true }
+        val root = LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(16,18,16,20); setBackgroundColor(Color.WHITE) }
+        page.addView(root)
         root.addView(TextView(this).apply { text="♫ Hearthsong"; textSize=26f; setTextColor(teal) })
         root.addView(TextView(this).apply { text="PRIVATE SONGWRITING STUDIO"; textSize=10f; letterSpacing=.14f; setTextColor(Color.GRAY) })
         titleBox=EditText(this).apply { hint="Song title"; setSingleLine(true) }; root.addView(titleBox)
         lyricsBox=EditText(this).apply { hint="Write your original lyrics here…"; minLines=5; gravity=android.view.Gravity.TOP; textSize=17f }
-        root.addView(lyricsBox,LinearLayout.LayoutParams(-1,0,1f))
+        root.addView(lyricsBox,LinearLayout.LayoutParams(-1,220))
+        lyricsBox.isVerticalScrollBarEnabled=true
+        lyricsBox.setPadding(12,12,12,12)
         root.addView(button("Save song"){ saveSong(); toast("Saved on this phone.") })
         root.addView(button("Open lyric-following screen"){ showLyrics() })
         lyricScroll=ScrollView(this).apply { visibility=View.GONE; setBackgroundColor(Color.rgb(248,252,251)) }
         lyricView=TextView(this).apply { textSize=27f; setTextColor(Color.rgb(20,35,33)); gravity=android.view.Gravity.CENTER; setPadding(14,28,14,300); setLineSpacing(12f,1f) }
-        lyricScroll.addView(lyricView); root.addView(lyricScroll,LinearLayout.LayoutParams(-1,0,1f))
+        lyricScroll.addView(lyricView); root.addView(lyricScroll,LinearLayout.LayoutParams(-1,260))
         pitchView=TextView(this).apply { text="Pitch monitor: waiting"; textSize=12f; setTextColor(Color.GRAY) }; root.addView(pitchView)
         status=TextView(this).apply { textSize=12f; setTextColor(teal); setPadding(0,6,0,6) }; root.addView(status)
         val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
@@ -63,8 +68,9 @@ class MainActivity : Activity() {
         root.addView(button("Back to writing"){ stopFollowing(); lyricScroll.visibility=View.GONE; lyricsBox.visibility=View.VISIBLE })
         root.addView(TextView(this).apply { text="MY SONGS & TAKES"; textSize=11f; setTextColor(teal); setPadding(0,12,0,4) })
         library=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
-        val listScroll=ScrollView(this); listScroll.addView(library); root.addView(listScroll,LinearLayout.LayoutParams(-1,130))
-        setContentView(root)
+        val listScroll=ScrollView(this).apply { isNestedScrollingEnabled=true; isVerticalScrollBarEnabled=true }
+        listScroll.addView(library); root.addView(listScroll,LinearLayout.LayoutParams(-1,-2))
+        setContentView(page)
         renderLibrary()
         status.text=if(Build.VERSION.SDK_INT>=31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) "On-device speech recognition is available. No online fallback will be used." else "On-device speech recognition is unavailable. Hearthsong will not send your voice online."
     }
