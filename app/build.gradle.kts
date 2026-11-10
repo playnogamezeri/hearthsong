@@ -2,6 +2,11 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+val releaseStorePath = System.getenv("HEARTHSONG_KEYSTORE_PATH")
+val releaseStorePassword = System.getenv("HEARTHSONG_KEYSTORE_PASSWORD")
+val releaseKeyAlias = System.getenv("HEARTHSONG_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("HEARTHSONG_KEY_PASSWORD")
+
 android {
     namespace = "com.hearthsong.app"
     compileSdk = 35
@@ -12,11 +17,28 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+    signingConfigs {
+        if (!releaseStorePath.isNullOrBlank() && !releaseStorePassword.isNullOrBlank() && !releaseKeyAlias.isNullOrBlank() && !releaseKeyPassword.isNullOrBlank()) {
+            create("release") {
+                storeFile = file(releaseStorePath)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            if (!releaseStorePath.isNullOrBlank() && !releaseStorePassword.isNullOrBlank() && !releaseKeyAlias.isNullOrBlank() && !releaseKeyPassword.isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
     defaultConfig {
         applicationId = "com.hearthsong.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 }
