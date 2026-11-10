@@ -630,9 +630,11 @@ class MainActivity : Activity() {
             }catch(e:Exception){
                 modelLoading=false
                 runOnUiThread{
-                    popupStatus?.text="Recording could not start because the offline speech model was unavailable. Check internet once, then try again."
-                    status.text="Could not prepare offline lyric recognition: "+(e.message?:"unknown error")
-                    updateRecordButton(false)
+                    status.text="Offline lyric recognition could not be prepared: "+(e.message?:"unknown error")
+                    if(!isFinishing && popupLyricText!=null){
+                        popupStatus?.text="Offline lyric matching is unavailable right now. Starting audio recording anyway."
+                        startPerformanceCapture()
+                    }else updateRecordButton(false)
                 }
             }
         }
@@ -660,7 +662,7 @@ class MainActivity : Activity() {
         popupPerformanceButton?.isEnabled=true
         popupPerformanceButton?.text="■ Stop Performance"
         popupTimer?.text="REC  00:00"
-        popupStatus?.text="Recording locally. Lyric matching runs on this same microphone audio."
+        popupStatus?.text=if(voskModel!=null)"Recording locally. Lyric matching runs on this same microphone audio." else "Recording locally. Offline lyric matching is unavailable; audio recording will continue."
         status.text="Performance recording locally on this phone…"
         handler.removeCallbacks(timerTick);handler.post(timerTick)
         performanceAudio=audio
