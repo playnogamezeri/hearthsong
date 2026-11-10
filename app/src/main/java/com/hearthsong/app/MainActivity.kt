@@ -599,7 +599,7 @@ class MainActivity : Activity() {
                             var entry=zip.nextEntry
                             var total=0L
                             while(entry!=null){
-                                val clean=entry.name.replace('\\\\','/')
+                                val clean=entry.name.replace('\\','/')
                                 val relative=clean.substringAfter('/',"")
                                 if(relative.isNotBlank()){
                                     val out=File(unpackDir,relative)
@@ -665,7 +665,7 @@ class MainActivity : Activity() {
             var recognizer:Recognizer?=null
             var recognitionFailed=false
             try{
-                recognizer=try{Recognizer(voskModel,16000.0f)}catch(_:Exception){recognitionFailed=true;null}
+                recognizer=try{Recognizer(voskModel ?: throw IllegalStateException("Offline model is not loaded."),16000.0f)}catch(_:Exception){recognitionFailed=true;null}
                 audio.startRecording()
                 FileOutputStream(raw).use{output->
                     val buffer=ByteArray(4096)
