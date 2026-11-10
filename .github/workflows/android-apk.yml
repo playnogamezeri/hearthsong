@@ -22,9 +22,33 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build debug APK
+      - name: Prepare permanent signing key
+        if: ${{ secrets.HEARTHSONG_KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.HEARTHSONG_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/hearthsong-release-key.jks"
+      - name: Build permanently signed release APK
+        if: ${{ secrets.HEARTHSONG_KEYSTORE_BASE64 != '' }}
+        env:
+          HEARTHSONG_KEYSTORE_PATH: ${{ runner.temp }}/hearthsong-release-key.jks
+          HEARTHSONG_KEYSTORE_PASSWORD: ${{ secrets.HEARTHSONG_KEYSTORE_PASSWORD }}
+          HEARTHSONG_KEY_ALIAS: ${{ secrets.HEARTHSONG_KEY_ALIAS }}
+          HEARTHSONG_KEY_PASSWORD: ${{ secrets.HEARTHSONG_KEY_PASSWORD }}
+        run: gradle --no-daemon assembleRelease
+      - name: Build debug APK until signing secrets are configured
+        if: ${{ secrets.HEARTHSONG_KEYSTORE_BASE64 == '' }}
         run: gradle --no-daemon assembleDebug
-      - uses: actions/upload-artifact@v4
+      - name: Upload permanently signed APK
+        if: ${{ secrets.HEARTHSONG_KEYSTORE_BASE64 != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: hearthsong-release-apk
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+      - name: Upload debug APK (not suitable for updates)
+        if: ${{ secrets.HEARTHSONG_KEYSTORE_BASE64 == '' }}
+        uses: actions/upload-artifact@v4
         with:
           name: hearthsong-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
