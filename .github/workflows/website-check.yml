@@ -1,0 +1,21 @@
+name: Hearthsong website self-test
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'index.html'
+      - 'scripts/check-website.mjs'
+      - '.github/workflows/website-check.yml'
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check website JavaScript and core features
+        run: node scripts/check-website.mjs
