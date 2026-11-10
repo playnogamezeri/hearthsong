@@ -1,4 +1,4 @@
-# Hearthsong Android prototype
+# Jack's RePO Android prototype
 
 This prototype lives on the separate `android-app` branch. It does not change the published website on `main`.
 
@@ -18,6 +18,6 @@ This prototype lives on the separate `android-app` branch. It does not change th
 The first prototype opens separate microphone capture paths for speech recognition and pitch analysis. Some Android devices may not allow both to receive audio simultaneously. Test this carefully; the next engineering step is to validate microphone concurrency and, if necessary, use a single shared audio pipeline.
 
 ## Build
-The GitHub Actions workflow builds a debug APK from the `android-app` branch. In the repository's Actions tab, run **Build Hearthsong Android APK**, then download the `hearthsong-debug-apk` artifact from a successful run.
+The GitHub Actions workflow builds a debug APK from the `android-app` branch. In the repository's Actions tab, run **Build Jack's RePO Android APK**, then download the `jacks-repo-debug-apk` artifact from a successful run.
 
 This is an experimental prototype, not a release-ready app.
