@@ -105,7 +105,7 @@ class MainActivity : Activity() {
         val page = ScrollView(this).apply { isFillViewport=true; isVerticalScrollBarEnabled=true }
         val root = LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(16,18,16,20); setBackgroundColor(Color.WHITE) }
         page.addView(root)
-        root.addView(TextView(this).apply { text="♫ Hearthsong"; textSize=26f; setTextColor(teal) })
+        root.addView(TextView(this).apply { text="♫ Jack's RePO"; textSize=26f; setTextColor(teal) })
         root.addView(TextView(this).apply { text="PRIVATE SONGWRITING STUDIO"; textSize=10f; letterSpacing=.14f; setTextColor(Color.GRAY) })
         val tabs=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
         tabs.addView(button("Write"){showPage(false)},LinearLayout.LayoutParams(0,-2,1f))
@@ -147,7 +147,7 @@ class MainActivity : Activity() {
         listScroll.addView(library); libraryPage.addView(listScroll,LinearLayout.LayoutParams(-1,-2))
         setContentView(page)
         renderLibrary()
-        status.text=if(Build.VERSION.SDK_INT>=31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) "On-device speech recognition is available. No online fallback will be used." else "On-device speech recognition is unavailable. Hearthsong will not send your voice online."
+        status.text=if(Build.VERSION.SDK_INT>=31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) "On-device speech recognition is available. No online fallback will be used." else "On-device speech recognition is unavailable. Jack's RePO will not send your voice online."
     }
 
     private fun showPage(showLibrary:Boolean){
@@ -255,7 +255,7 @@ class MainActivity : Activity() {
         val intent=Intent(Intent.ACTION_CREATE_DOCUMENT).apply{
             addCategory(Intent.CATEGORY_OPENABLE)
             type="application/zip"
-            putExtra(Intent.EXTRA_TITLE,"Hearthsong-backup-"+java.text.SimpleDateFormat("yyyyMMdd-HHmm",java.util.Locale.US).format(java.util.Date())+".zip")
+            putExtra(Intent.EXTRA_TITLE,"JacksRePO-backup-"+java.text.SimpleDateFormat("yyyyMMdd-HHmm",java.util.Locale.US).format(java.util.Date())+".zip")
         }
         startActivityForResult(intent,backupCreateRequest)
     }
