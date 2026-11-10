@@ -16,9 +16,15 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
+import org.vosk.Model
+import org.vosk.Recognizer
+import java.net.HttpURLConnection
+import java.net.URL
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import android.text.SpannableString
 import android.text.style.BackgroundColorSpan
 import android.view.View
@@ -80,13 +86,12 @@ class MainActivity : Activity() {
     private var popupLyricScroll: ScrollView? = null
     private var popupLyricText: TextView? = null
     private var popupStatus: TextView? = null
-    private var popupFollowButton: Button? = null
-    private var popupRecordButton: Button? = null
+    private var popupPerformanceButton: Button? = null
     private var popupTimer: TextView? = null
     private var recordingStartedAt = 0L
     private val timerTick = object : Runnable {
         override fun run() {
-            if (recorder != null) {
+            if (recordingActive) {
                 val seconds = ((System.currentTimeMillis() - recordingStartedAt) / 1000).toInt()
                 popupTimer?.text = String.format(java.util.Locale.US, "REC  %02d:%02d", seconds / 60, seconds % 60)
                 handler.postDelayed(this, 500)
@@ -95,13 +100,15 @@ class MainActivity : Activity() {
     }
     private var lyricLines: List<String> = emptyList()
     private var currentLineIndex = 0
-    private var speech: SpeechRecognizer? = null
-    private var following = false
-    private var lastMatchedLine = -1
-    private var lastRecognizedPhrase = ""
-    private var recorder: MediaRecorder? = null
-    private var audioRecord: AudioRecord? = null
+    @Volatile private var recordingActive = false
+    @Volatile private var recognitionEnabled = true
+    private var performanceAudio: AudioRecord? = null
+    private var performanceThread: Thread? = null
+    private var performanceRawFile: File? = null
+    private var performanceFinalFile: File? = null
+    private var voskModel: Model? = null
     @Volatile private var pitchRunning = false
+    private var audioRecord: AudioRecord? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -136,9 +143,8 @@ class MainActivity : Activity() {
         pitchView=TextView(this).apply { text="Pitch monitor: waiting"; textSize=12f; setTextColor(Color.GRAY) }; editorPage.addView(pitchView)
         status=TextView(this).apply { textSize=12f; setTextColor(teal); setPadding(0,6,0,6) }; editorPage.addView(status)
         val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
-        row.addView(button("Follow singing"){ if(following) stopFollowing() else startFollowing() },LinearLayout.LayoutParams(0,-2,1f))
-        recordButton=button("Record / stop"){ if(recorder==null) startRecording() else stopRecording() }
-        row.addView(recordButton,LinearLayout.LayoutParams(0,-2,1f))
+        recordButton=button("Start Performance"){ showLyrics(); startPerformance() }
+        row.addView(recordButton,LinearLayout.LayoutParams(-1,-2))
         updateRecordButton(false)
         editorPage.addView(row)
         editorPage.addView(button("Back to writing"){ stopFollowing(); lyricScroll.visibility=View.GONE; lyricsBox.visibility=View.VISIBLE })
@@ -166,7 +172,7 @@ class MainActivity : Activity() {
 
     private fun updateRecordButton(isRecording:Boolean) {
         if(!::recordButton.isInitialized)return
-        recordButton.text=if(isRecording) "● RECORDING — STOP" else "Record / stop"
+        recordButton.text=if(isRecording) "■ Stop Performance" else "▶ Start Performance"
         recordButton.setTextColor(if(isRecording) Color.WHITE else teal)
         recordButton.backgroundTintList=android.content.res.ColorStateList.valueOf(if(isRecording) Color.rgb(220,45,55) else Color.rgb(235,248,246))
         recordButton.isActivated=isRecording
@@ -270,7 +276,7 @@ class MainActivity : Activity() {
             row.addView(button("Delete"){AlertDialog.Builder(this@MainActivity).setTitle("Delete song?").setMessage("Delete this song and its lyrics?").setNegativeButton("Cancel",null).setPositiveButton("Delete"){_,_->deleteSong(songTitle)}.show()},LinearLayout.LayoutParams(0,-2,1f))
             library.addView(row)
         }
-        val takes=filesDir.listFiles()?.filter{it.name.startsWith("take_")&&it.extension=="m4a"}?: emptyList()
+        val takes=filesDir.listFiles()?.filter{it.name.startsWith("take_")&&it.extension in setOf("m4a","wav")}?: emptyList()
         library.addView(TextView(this).apply{text="Saved recordings: "+takes.size; textSize=12f; setTextColor(Color.GRAY);setPadding(0,12,0,4)})
         if(player!=null && playingFile!=null) {
             val playerPanel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(12,8,12,12);setBackgroundColor(Color.rgb(240,249,247))}
@@ -342,7 +348,7 @@ class MainActivity : Activity() {
     private fun writeBackup(uri:android.net.Uri){
         try{
             val songs=prefs.getString("songs","[]")?:"[]"
-            val takes=filesDir.listFiles()?.filter{it.name.startsWith("take_")&&it.extension=="m4a"}?: emptyList()
+            val takes=filesDir.listFiles()?.filter{it.name.startsWith("take_")&&it.extension in setOf("m4a","wav")}?: emptyList()
             val metadata=JSONObject().put("app","Hearthsong").put("formatVersion",1).put("createdAt",System.currentTimeMillis()).put("songs",JSONArray(songs))
             val names=JSONArray()
             takes.forEach{names.put(it.name)}
@@ -377,7 +383,7 @@ class MainActivity : Activity() {
                             if(name=="hearthsong-backup.json"){
                                 val text=zip.readBytes().toString(Charsets.UTF_8)
                                 metadata=JSONObject(text)
-                            }else if(name.startsWith("recordings/") && name.removePrefix("recordings/").matches(Regex("take_[0-9]+\\.m4a"))){
+                            }else if(name.startsWith("recordings/") && name.removePrefix("recordings/").matches(Regex("take_[0-9]+(?:\\.m4a|\\.wav)"))){
                                 val out=java.io.File(tempDir,name.substringAfterLast('/'))
                                 out.outputStream().use{zip.copyTo(it)}
                             }
@@ -406,9 +412,10 @@ class MainActivity : Activity() {
             tempDir.listFiles()?.forEach{source->
                 var target=java.io.File(filesDir,source.name)
                 if(target.exists()){
-                    val base=source.name.removeSuffix(".m4a")
+                    val extension=source.extension
+                    val base=source.name.removeSuffix("."+extension)
                     var suffix=1
-                    do{target=java.io.File(filesDir,base+"_restored"+suffix+".m4a");suffix++}while(target.exists())
+                    do{target=java.io.File(filesDir,base+"_restored"+suffix+"."+extension);suffix++}while(target.exists())
                 }
                 source.copyTo(target,false);restored++
             }
@@ -480,11 +487,11 @@ class MainActivity : Activity() {
         val display=TextView(this).apply{textSize=26f;gravity=android.view.Gravity.CENTER;setTextColor(Color.rgb(145,158,155));setPadding(20,190,20,250);setLineSpacing(20f,1.08f);text=lyricLines.joinToString("\n\n")}
         scroll.addView(display,android.widget.FrameLayout.LayoutParams(-1,-2))
         shell.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
-        val liveStatus=TextView(this).apply{text="Ready. Start following or record your performance.";textSize=12f;setTextColor(teal);setPadding(4,8,4,4)}
+        val liveStatus=TextView(this).apply{text="Ready. Start Performance records your voice while following lyrics on this phone.";textSize=12f;setTextColor(teal);setPadding(4,8,4,4)}
         shell.addView(liveStatus)
         val liveTimer=TextView(this).apply{text="REC  00:00";textSize=16f;setTypeface(null,Typeface.BOLD);setTextColor(Color.rgb(190,45,50));gravity=android.view.Gravity.CENTER;setPadding(4,6,4,6)}
         shell.addView(liveTimer)
-        val takes=filesDir.listFiles()?.filter{it.name.startsWith("take_")&&it.extension=="m4a"}?.sortedByDescending{it.lastModified()}?: emptyList()
+        val takes=filesDir.listFiles()?.filter{it.name.startsWith("take_")&&it.extension in setOf("m4a","wav")}?.sortedByDescending{it.lastModified()}?: emptyList()
         val playbackPanel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(10,8,10,8);setBackgroundColor(Color.rgb(239,248,246))}
         playbackPanel.addView(TextView(this).apply{text="YOUR RECORDINGS";textSize=11f;setTextColor(teal);setTypeface(null,Typeface.BOLD)})
         val takeSpinner=Spinner(this)
@@ -516,15 +523,10 @@ class MainActivity : Activity() {
         shell.addView(playbackPanel)
         if(takes.isEmpty()) playbackPanel.alpha=0.85f
         val controls=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
-        val followControl=button("Start following"){
-            if(following){stopFollowing()}else{startFollowing()}
-        }
-        popupFollowButton=followControl
-        controls.addView(followControl,LinearLayout.LayoutParams(0,-2,1f))
-        val popupRecord=button("● Record"){if(recorder==null)startRecording() else stopRecording()}
-        popupRecordButton=popupRecord
-        controls.addView(popupRecord,LinearLayout.LayoutParams(0,-2,1f))
-        controls.addView(button("Close"){if(recorder!=null)stopRecording();stopFollowing();dialog.dismiss()},LinearLayout.LayoutParams(0,-2,1f))
+        val performanceControl=button("▶ Start Performance"){if(recordingActive)stopPerformance() else startPerformance()}
+        popupPerformanceButton=performanceControl
+        controls.addView(performanceControl,LinearLayout.LayoutParams(0,-2,2f))
+        controls.addView(button("Close"){if(recordingActive)stopPerformance();dialog.dismiss()},LinearLayout.LayoutParams(0,-2,1f))
         shell.addView(controls)
         dialog.setContentView(shell)
         dialog.show()
@@ -534,7 +536,7 @@ class MainActivity : Activity() {
         popupLyricText=display
         popupStatus=liveStatus
         popupTimer=liveTimer
-        dialog.setOnDismissListener{if(recorder!=null)stopRecording();stopFollowing();destroyYouTubeWebView();popupLyricScroll=null;popupLyricText=null;popupStatus=null;popupTimer=null;popupFollowButton=null;popupRecordButton=null;popupPlaybackSeek=null;popupPlaybackTime=null;popupPlaybackButton=null;popupTakeSpinner=null}
+        dialog.setOnDismissListener{if(recordingActive)stopPerformance();destroyYouTubeWebView();popupLyricScroll=null;popupLyricText=null;popupStatus=null;popupTimer=null;popupPerformanceButton=null;popupPlaybackSeek=null;popupPlaybackTime=null;popupPlaybackButton=null;popupTakeSpinner=null}
         renderActiveLyricLine(false)
     }
 
@@ -563,54 +565,170 @@ class MainActivity : Activity() {
             else scroll.scrollTo(0,target)
         }
     }
-    private fun startFollowing(){
-        if (popupLyricText == null) showLyrics()
-        if (recorder != null) { stopRecording(); popupStatus?.text = "Recording stopped so following can use the microphone." }
-        following = true
-        lastMatchedLine = -1
-        lastRecognizedPhrase = ""
-        popupFollowButton?.text = "Stop following"
-        popupStatus?.text = "Waiting for your singing. Lyrics move when your words are recognized."
+    private fun startPerformance(){
+        if(recordingActive)return
+        if(popupLyricText==null)showLyrics()
         if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
-            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO),41)
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO),43)
             return
         }
-        if(Build.VERSION.SDK_INT<31 || !SpeechRecognizer.isOnDeviceRecognitionAvailable(this)){
-            popupStatus?.text = "Slow lyric scrolling is active. On-device voice matching is unavailable on this phone."
-            return
+        stopPitchMonitor()
+        popupStatus?.text="Preparing private, on-device lyric recognition. The first setup downloads a speech model once."
+        status.text="Preparing on-device performance tools…"
+        if(voskModel!=null){startPerformanceCapture();return}
+        thread(name="JacksRePOModelSetup"){
+            try{
+                val modelDir=File(filesDir,"vosk-model-small-en-us-0.15")
+                if(!File(modelDir,"conf/model.conf").exists()){
+                    val zipFile=File(cacheDir,"vosk-model-small-en-us-0.15.zip")
+                    val connection=(URL("https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip").openConnection() as HttpURLConnection).apply{
+                        connectTimeout=20000;readTimeout=60000;requestMethod="GET"
+                    }
+                    try{
+                        connection.connect()
+                        if(connection.responseCode !in 200..299)throw java.io.IOException("Model download returned HTTP "+connection.responseCode)
+                        BufferedInputStream(connection.inputStream).use{input->FileOutputStream(zipFile).use{output->input.copyTo(output)}}
+                    }finally{connection.disconnect()}
+                    val unpackDir=File(cacheDir,"vosk-unpack-"+System.currentTimeMillis())
+                    if(!unpackDir.mkdirs())throw java.io.IOException("Could not prepare model folder.")
+                    try{
+                        ZipInputStream(BufferedInputStream(FileInputStream(zipFile))).use{zip->
+                            var entry=zip.nextEntry
+                            var total=0L
+                            while(entry!=null){
+                                val clean=entry.name.replace('\\\\','/')
+                                val relative=clean.substringAfter('/',"")
+                                if(relative.isNotBlank()){
+                                    val out=File(unpackDir,relative)
+                                    if(!out.canonicalPath.startsWith(unpackDir.canonicalPath+File.separator))throw java.io.IOException("Unsafe model archive entry.")
+                                    if(entry.isDirectory)out.mkdirs() else{
+                                        out.parentFile?.mkdirs()
+                                        FileOutputStream(out).use{output->
+                                            val buffer=ByteArray(8192);var count=inputRead(zip,buffer)
+                                            while(count>0){total+=count;if(total>180L*1024L*1024L)throw java.io.IOException("Speech model archive is unexpectedly large.");output.write(buffer,0,count);count=inputRead(zip,buffer)}
+                                        }
+                                    }
+                                }
+                                zip.closeEntry();entry=zip.nextEntry
+                            }
+                        }
+                        if(!File(unpackDir,"conf/model.conf").exists())throw java.io.IOException("The downloaded speech model was incomplete.")
+                        if(modelDir.exists())modelDir.deleteRecursively()
+                        if(!unpackDir.renameTo(modelDir)){
+                            unpackDir.copyRecursively(modelDir,true);unpackDir.deleteRecursively()
+                        }
+                    }finally{unpackDir.deleteRecursively();zipFile.delete()}
+                }
+                val loaded=Model(modelDir.absolutePath)
+                voskModel=loaded
+                runOnUiThread{if(!isFinishing)startPerformanceCapture()}
+            }catch(e:Exception){
+                runOnUiThread{
+                    popupStatus?.text="Recording could not start because the offline speech model was unavailable. Check internet once, then try again."
+                    status.text="Could not prepare offline lyric recognition: "+(e.message?:"unknown error")
+                    updateRecordButton(false)
+                }
+            }
         }
-        try{
-            speech=SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
-            speech?.setRecognitionListener(object:RecognitionListener{
-                override fun onReadyForSpeech(params:Bundle?){popupStatus?.text="Listening on this phone…"}
-                override fun onBeginningOfSpeech(){popupStatus?.text="I hear you singing…"}
-                override fun onRmsChanged(rmsdB:Float){}
-                override fun onBufferReceived(buffer:ByteArray?){}
-                override fun onEndOfSpeech(){}
-                override fun onError(error:Int){if(following && error!=SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS && error!=SpeechRecognizer.ERROR_CLIENT)restartSpeech() else if(error!=SpeechRecognizer.ERROR_CLIENT){popupStatus?.text="Voice matching stopped. Check microphone permission or offline speech support.";try{speech?.destroy()}catch(_:Exception){};speech=null}}
-                override fun onResults(results:Bundle?){updateLyrics(results);restartSpeech()}
-                override fun onPartialResults(results:Bundle?){updateLyrics(results)}
-                override fun onEvent(eventType:Int,params:Bundle?){}
-            })
-            pitchView.text="Pitch monitor pauses while lyric following uses the microphone."
-            listen()
-        }catch(e:Exception){popupStatus?.text="Slow scrolling is active, but local voice matching could not start."}
     }
 
-    private fun listen(){
-        if(!following)return
-        val intent=Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply{
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE,"en-US")
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS,true)
-            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE,true)
-        }
-        try{speech?.startListening(intent)}catch(_:Exception){restartSpeech()}
-    }
-    private fun restartSpeech(){handler.postDelayed({if(following)listen()},400)}
+    private fun inputRead(input:java.io.InputStream,buffer:ByteArray):Int=input.read(buffer)
 
-    private fun updateLyrics(bundle:Bundle?){
-        val spoken=bundle?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?:return
+    private fun startPerformanceCapture(){
+        if(recordingActive)return
+        val sampleRate=16000
+        val minBuffer=AudioRecord.getMinBufferSize(sampleRate,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT)
+        if(minBuffer<=0){popupStatus?.text="Microphone is unavailable on this phone.";return}
+        val bufferSize=maxOf(minBuffer*2,8192)
+        val audio=try{AudioRecord(MediaRecorder.AudioSource.MIC,sampleRate,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT,bufferSize)}catch(e:Exception){
+            popupStatus?.text="Could not open the microphone: "+(e.message?:"unknown error");return
+        }
+        if(audio.state!=AudioRecord.STATE_INITIALIZED){audio.release();popupStatus?.text="Microphone could not be initialized.";return}
+        val stamp=System.currentTimeMillis()
+        val raw=File(cacheDir,"take_$stamp.pcm")
+        val final=File(filesDir,"take_$stamp.wav")
+        performanceRawFile=raw;performanceFinalFile=final
+        recordingActive=true;recognitionEnabled=true;recordingStartedAt=stamp
+        updateRecordButton(true)
+        popupPerformanceButton?.text="■ Stop Performance"
+        popupTimer?.text="REC  00:00"
+        popupStatus?.text="Recording locally. Lyric matching runs on this same microphone audio."
+        status.text="Performance recording locally on this phone…"
+        handler.removeCallbacks(timerTick);handler.post(timerTick)
+        performanceAudio=audio
+        performanceThread=thread(name="JacksRePOAudioCapture"){
+            var recognizer:Recognizer?=null
+            var recognitionFailed=false
+            try{
+                recognizer=try{Recognizer(voskModel,16000.0f)}catch(_:Exception){recognitionFailed=true;null}
+                audio.startRecording()
+                FileOutputStream(raw).use{output->
+                    val buffer=ByteArray(4096)
+                    while(recordingActive){
+                        val count=audio.read(buffer,0,buffer.size)
+                        if(count>0){
+                            output.write(buffer,0,count)
+                            if(recognitionEnabled && recognizer!=null){
+                                try{
+                                    val result=if(recognizer.acceptWaveForm(buffer,count))recognizer.result else recognizer.partialResult
+                                    val json=JSONObject(result)
+                                    val words=json.optString("text").ifBlank{json.optString("partial")}
+                                    if(words.isNotBlank())runOnUiThread{if(recordingActive)updateLyricsFromText(words)}
+                                }catch(_:Exception){recognitionFailed=true;recognitionEnabled=false;try{recognizer.close()}catch(_:Exception){};recognizer=null
+                                    runOnUiThread{popupStatus?.text="Still recording. Lyric matching paused after a recognition error."}
+                                }
+                            }
+                        }else if(count<0 && recordingActive){recognitionEnabled=false;recognitionFailed=true}
+                    }
+                }
+                writeWav(raw,final,sampleRate)
+                raw.delete()
+                runOnUiThread{
+                    performanceAudio=null;performanceThread=null;recordingActive=false
+                    handler.removeCallbacks(timerTick);updateRecordButton(false)
+                    popupPerformanceButton?.text="▶ Start Performance";popupTimer?.text="REC  00:00"
+                    popupStatus?.text=if(final.exists())"Performance saved on this phone. "+if(recognitionFailed)"Audio was saved; lyric matching was unavailable." else "Audio and lyric-following session saved." else "Recording could not be saved."
+                    status.text=if(final.exists())"Performance saved locally: "+final.name else "Performance recording failed."
+                    renderLibrary()
+                }
+            }catch(e:Exception){
+                raw.delete()
+                runOnUiThread{
+                    performanceAudio=null;performanceThread=null;recordingActive=false
+                    handler.removeCallbacks(timerTick);updateRecordButton(false)
+                    popupPerformanceButton?.text="▶ Start Performance"
+                    popupStatus?.text="Recording stopped unexpectedly: "+(e.message?:"microphone error")
+                    status.text="Performance recording failed."
+                }
+            }finally{
+                try{recognizer?.close()}catch(_:Exception){}
+                try{audio.stop()}catch(_:Exception){}
+                audio.release()
+            }
+        }
+    }
+
+    private fun writeWav(raw:File,wav:File,sampleRate:Int){
+        val dataLength=raw.length()
+        FileOutputStream(wav).use{file->
+            val out=BufferedOutputStream(file)
+            val header=ByteArray(44)
+            fun putInt(offset:Int,value:Int){for(i in 0..3)header[offset+i]=(value ushr (8*i)).toByte()}
+            fun putShort(offset:Int,value:Int){header[offset]=(value and 255).toByte();header[offset+1]=((value ushr 8) and 255).toByte()}
+            "RIFF".toByteArray(Charsets.US_ASCII).copyInto(header,0)
+            putInt(4,(36+dataLength).coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
+            "WAVE".toByteArray(Charsets.US_ASCII).copyInto(header,8)
+            "fmt ".toByteArray(Charsets.US_ASCII).copyInto(header,12)
+            putInt(16,16);putShort(20,1);putShort(22,1);putInt(24,sampleRate);putInt(28,sampleRate*2);putShort(32,2);putShort(34,16)
+            "data".toByteArray(Charsets.US_ASCII).copyInto(header,36)
+            putInt(40,dataLength.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
+            out.write(header)
+            FileInputStream(raw).use{input->input.copyTo(out)}
+            out.flush()
+        }
+    }
+
+    private fun updateLyricsFromText(spoken:String){
         if(lyricLines.isEmpty())lyricLines=lyricsBox.text.toString().lines()
         if(lyricLines.isEmpty())return
         val normalized=spoken.lowercase().replace(Regex("[^\\p{L}\\p{N} ]")," ").trim()
@@ -620,8 +738,7 @@ class MainActivity : Activity() {
         if(tokens.isEmpty())return
         val first=currentLineIndex.coerceAtLeast(0)
         val last=(currentLineIndex+3).coerceAtMost(lyricLines.lastIndex)
-        var best=-1
-        var bestScore=0
+        var best=-1;var bestScore=0
         for(index in first..last){
             val words=lyricLines[index].lowercase().replace(Regex("[^\\p{L}\\p{N} ]")," ").split(Regex("\\s+")).filter{it.isNotBlank()}
             if(words.isEmpty())continue
@@ -630,16 +747,24 @@ class MainActivity : Activity() {
             val adjusted=score*100-(index-currentLineIndex)*8
             if(score>=required && adjusted>bestScore){bestScore=adjusted;best=index}
         }
-        if(best>=currentLineIndex && best!=lastMatchedLine && bestScore>0){
-            lastMatchedLine=best
+        if(best>=currentLineIndex && bestScore>0){
             currentLineIndex=best
-            runOnUiThread{renderActiveLyricLine(true);popupStatus?.text="Following your singing · line ${best+1}"}
+            runOnUiThread{renderActiveLyricLine(true);popupStatus?.text="Recording · following lyric line ${best+1}"}
         }
     }
-    private fun stopFollowing(){
-        following=false
-        try{speech?.stopListening();speech?.destroy()}catch(_:Exception){}
-        speech=null; status.text="Lyric following stopped.";popupStatus?.text="Lyric following stopped.";popupFollowButton?.text="Start following"
+
+    private var lastRecognizedPhrase=""
+
+    private fun stopPerformance(){
+        if(!recordingActive)return
+        recordingActive=false
+        recognitionEnabled=false
+        try{performanceAudio?.stop()}catch(_:Exception){}
+        popupStatus?.text="Finishing and saving your performance…"
+        status.text="Finishing performance recording…"
+        handler.removeCallbacks(timerTick)
+        updateRecordButton(false)
+        popupPerformanceButton?.text="▶ Start Performance"
     }
 
     private fun startPitchMonitor(){
@@ -684,26 +809,10 @@ class MainActivity : Activity() {
         audioRecord=null;pitchView.text="Pitch monitor stopped"
     }
 
-    private fun startRecording(){
-        if(following){stopFollowing();popupStatus?.text="Voice following paused so recording can use the microphone. Voice following and recording cannot run together in this version."}
-        if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO),42);return}
-        try{
-            val file=java.io.File(filesDir,"take_"+System.currentTimeMillis()+".m4a")
-            val mr=if(Build.VERSION.SDK_INT>=31)MediaRecorder(this) else MediaRecorder()
-            mr.setAudioSource(MediaRecorder.AudioSource.MIC);mr.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);mr.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);mr.setOutputFile(file.absolutePath);mr.prepare();mr.start()
-            recorder=mr;recordingStartedAt=System.currentTimeMillis();updateRecordButton(true);popupRecordButton?.text="■ Stop recording";popupStatus?.text="Recording locally on this phone. Voice following is paused.";popupTimer?.text="REC  00:00";handler.removeCallbacks(timerTick);handler.post(timerTick);status.text="Recording locally on this phone…"
-        }catch(e:Exception){status.text="Could not start recording: "+(e.message?:"unknown error")}
-    }
-    private fun stopRecording(){
-        try{recorder?.stop();recorder?.reset();recorder?.release();status.text="Recording saved locally.";renderLibrary()}
-        catch(_:Exception){status.text="Recording was too short or failed."}
-        recorder=null;handler.removeCallbacks(timerTick);updateRecordButton(false);popupRecordButton?.text="● Record";popupTimer?.text="REC  00:00";if(popupStatus!=null)popupStatus?.text="Recording saved locally. Tap Start following when ready to use voice following."
-    }
-
     override fun onRequestPermissionsResult(requestCode:Int,permissions:Array<out String>,grantResults:IntArray){
         super.onRequestPermissionsResult(requestCode,permissions,grantResults)
-        if(grantResults.firstOrNull()==PackageManager.PERMISSION_GRANTED){if(requestCode==41)startFollowing();if(requestCode==42)startRecording()}
+        if(grantResults.firstOrNull()==PackageManager.PERMISSION_GRANTED){if(requestCode==43)startPerformance()}
         else status.text="Microphone permission is needed for this feature."
     }
-    override fun onDestroy(){stopFollowing();if(recorder!=null)stopRecording();player?.release();player=null;super.onDestroy()}
+    override fun onDestroy(){if(recordingActive)stopPerformance();stopPitchMonitor();player?.release();player=null;try{voskModel?.close()}catch(_:Exception){};super.onDestroy()}
 }
