@@ -716,7 +716,7 @@ class MainActivity : Activity() {
                 writeWav(raw,final,sampleRate)
                 raw.delete()
                 runOnUiThread{
-                    performanceAudio=null;performanceThread=null;recordingActive=false;performanceFinalizing=false;performanceFinalizing=false
+                    performanceAudio=null;performanceThread=null;recordingActive=false;performanceFinalizing=false
                     handler.removeCallbacks(timerTick);updateRecordButton(false)
                     popupPerformanceButton?.isEnabled=true;popupPerformanceButton?.text="▶ Start Performance";popupTimer?.text="REC  00:00"
                     popupStatus?.text=if(final.exists())"Performance saved on this phone. "+if(recognitionFailed)"Audio was saved; lyric matching was unavailable." else "Audio and lyric-following session saved." else "Recording could not be saved."
