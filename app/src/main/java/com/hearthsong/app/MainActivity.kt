@@ -144,7 +144,7 @@ class MainActivity : Activity() {
         pitchView=TextView(this).apply { text="Pitch monitor: waiting"; textSize=12f; setTextColor(Color.GRAY) }; editorPage.addView(pitchView)
         status=TextView(this).apply { textSize=12f; setTextColor(teal); setPadding(0,6,0,6) }; editorPage.addView(status)
         val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
-        recordButton=button("Start Performance"){ if(recordingActive)stopPerformance() else { showLyrics(); startPerformance() } }
+        recordButton=button("Start Performance"){ if(modelLoading){toast("Preparing offline voice recognition…")} else if(recordingActive)stopPerformance() else { showLyrics(); startPerformance() } }
         row.addView(recordButton,LinearLayout.LayoutParams(-1,-2))
         updateRecordButton(false)
         editorPage.addView(row)
@@ -524,7 +524,7 @@ class MainActivity : Activity() {
         shell.addView(playbackPanel)
         if(takes.isEmpty()) playbackPanel.alpha=0.85f
         val controls=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
-        val performanceControl=button("▶ Start Performance"){if(recordingActive)stopPerformance() else startPerformance()}
+        val performanceControl=button("▶ Start Performance"){if(modelLoading)toast("Preparing offline voice recognition…") else if(recordingActive)stopPerformance() else startPerformance()}
         popupPerformanceButton=performanceControl
         controls.addView(performanceControl,LinearLayout.LayoutParams(0,-2,2f))
         controls.addView(button("Close"){if(recordingActive)stopPerformance();dialog.dismiss()},LinearLayout.LayoutParams(0,-2,1f))
@@ -625,7 +625,7 @@ class MainActivity : Activity() {
                 val loaded=Model(modelDir.absolutePath)
                 voskModel=loaded
                 modelLoading=false
-                runOnUiThread{if(!isFinishing)startPerformanceCapture()}
+                runOnUiThread{if(!isFinishing && popupLyricText!=null)startPerformanceCapture()}
             }catch(e:Exception){
                 modelLoading=false
                 runOnUiThread{
@@ -640,6 +640,7 @@ class MainActivity : Activity() {
     private fun inputRead(input:java.io.InputStream,buffer:ByteArray):Int=input.read(buffer)
 
     private fun startPerformanceCapture(){
+        popupPerformanceButton?.isEnabled=true
         if(recordingActive)return
         val sampleRate=16000
         val minBuffer=AudioRecord.getMinBufferSize(sampleRate,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT)
@@ -655,6 +656,7 @@ class MainActivity : Activity() {
         performanceRawFile=raw;performanceFinalFile=final
         recordingActive=true;recognitionEnabled=true;lastRecognizedPhrase="";recordingStartedAt=stamp
         updateRecordButton(true)
+        popupPerformanceButton?.isEnabled=true
         popupPerformanceButton?.text="■ Stop Performance"
         popupTimer?.text="REC  00:00"
         popupStatus?.text="Recording locally. Lyric matching runs on this same microphone audio."
@@ -691,7 +693,7 @@ class MainActivity : Activity() {
                 runOnUiThread{
                     performanceAudio=null;performanceThread=null;recordingActive=false
                     handler.removeCallbacks(timerTick);updateRecordButton(false)
-                    popupPerformanceButton?.text="▶ Start Performance";popupTimer?.text="REC  00:00"
+                    popupPerformanceButton?.isEnabled=true;popupPerformanceButton?.text="▶ Start Performance";popupTimer?.text="REC  00:00"
                     popupStatus?.text=if(final.exists())"Performance saved on this phone. "+if(recognitionFailed)"Audio was saved; lyric matching was unavailable." else "Audio and lyric-following session saved." else "Recording could not be saved."
                     status.text=if(final.exists())"Performance saved locally: "+final.name else "Performance recording failed."
                     renderLibrary()
@@ -701,7 +703,7 @@ class MainActivity : Activity() {
                 runOnUiThread{
                     performanceAudio=null;performanceThread=null;recordingActive=false
                     handler.removeCallbacks(timerTick);updateRecordButton(false)
-                    popupPerformanceButton?.text="▶ Start Performance"
+                    popupPerformanceButton?.isEnabled=true;popupPerformanceButton?.text="▶ Start Performance"
                     popupStatus?.text="Recording stopped unexpectedly: "+(e.message?:"microphone error")
                     status.text="Performance recording failed."
                 }
