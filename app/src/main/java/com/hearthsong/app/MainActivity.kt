@@ -108,7 +108,7 @@ class MainActivity : Activity() {
     private var performanceThread: Thread? = null
     private var performanceRawFile: File? = null
     private var performanceFinalFile: File? = null
-    private var voskModel: Model? = null
+    @Volatile private var voskModel: Model? = null
     @Volatile private var pitchRunning = false
     private var audioRecord: AudioRecord? = null
 
@@ -580,6 +580,7 @@ class MainActivity : Activity() {
         status.text="Preparing on-device performance tools…"
         if(voskModel!=null){startPerformanceCapture();return}
         modelLoading=true
+        startPerformanceCapture()
         thread(name="JacksRePOModelSetup"){
             try{
                 val modelDir=File(filesDir,"vosk-model-small-en-us-0.15")
@@ -626,14 +627,18 @@ class MainActivity : Activity() {
                 val loaded=Model(modelDir.absolutePath)
                 voskModel=loaded
                 modelLoading=false
-                runOnUiThread{if(!isFinishing && popupLyricText!=null)startPerformanceCapture()}
+                runOnUiThread{
+                    if(!isFinishing && popupLyricText!=null){
+                        popupStatus?.text=if(recordingActive)"Offline model ready. Lyric matching will begin during this performance." else "Offline model ready for your next performance."
+                    }
+                }
             }catch(e:Exception){
                 modelLoading=false
+                recognitionEnabled=false
                 runOnUiThread{
                     status.text="Offline lyric recognition could not be prepared: "+(e.message?:"unknown error")
-                    if(!isFinishing && popupLyricText!=null){
-                        popupStatus?.text="Offline lyric matching is unavailable right now. Starting audio recording anyway."
-                        startPerformanceCapture()
+                    if(!isFinishing && recordingActive){
+                        popupStatus?.text="Recording continues. Offline lyric matching is unavailable right now."
                     }else updateRecordButton(false)
                 }
             }
@@ -670,7 +675,10 @@ class MainActivity : Activity() {
             var recognizer:Recognizer?=null
             var recognitionFailed=false
             try{
-                recognizer=try{Recognizer(voskModel ?: throw IllegalStateException("Offline model is not loaded."),16000.0f)}catch(_:Exception){recognitionFailed=true;null}
+                val initialModel=voskModel
+                if(initialModel!=null){
+                    recognizer=try{Recognizer(initialModel,16000.0f)}catch(_:Exception){recognitionFailed=true;recognitionEnabled=false;null}
+                }
                 audio.startRecording()
                 FileOutputStream(raw).use{output->
                     val buffer=ByteArray(4096)
@@ -678,6 +686,18 @@ class MainActivity : Activity() {
                         val count=audio.read(buffer,0,buffer.size)
                         if(count>0){
                             output.write(buffer,0,count)
+                            if(recognitionEnabled && recognizer==null){
+                                val readyModel=voskModel
+                                if(readyModel!=null){
+                                    try{
+                                        recognizer=Recognizer(readyModel,16000.0f)
+                                        runOnUiThread{if(recordingActive)popupStatus?.text="Recording and following lyrics on this phone…"}
+                                    }catch(_:Exception){
+                                        recognitionFailed=true;recognitionEnabled=false
+                                        runOnUiThread{popupStatus?.text="Still recording. Offline lyric matching could not start."}
+                                    }
+                                }
+                            }
                             if(recognitionEnabled && recognizer!=null){
                                 try{
                                     val result=if(recognizer.acceptWaveForm(buffer,count))recognizer.result else recognizer.partialResult
@@ -691,6 +711,8 @@ class MainActivity : Activity() {
                         }else if(count<0 && recordingActive){recognitionEnabled=false;recognitionFailed=true;runOnUiThread{popupStatus?.text="Microphone input stopped. Saving the audio captured so far."};break}
                     }
                 }
+                if(recognizer==null)recognitionFailed=true
+                if(!recognitionEnabled)recognitionFailed=true
                 writeWav(raw,final,sampleRate)
                 raw.delete()
                 runOnUiThread{
