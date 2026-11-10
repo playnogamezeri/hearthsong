@@ -201,8 +201,24 @@ class MainActivity : Activity() {
             handler.removeCallbacks(playbackTick);handler.post(playbackTick)
         } else { playbackSeek=null;playbackTime=null;handler.removeCallbacks(playbackTick) }
         takes.sortedByDescending{it.lastModified()}.forEach{file->
-            library.addView(button(if(playingFile==file.absolutePath && player?.isPlaying==true) "Ⅱ  "+file.name else "▶  "+file.name){playTake(file)})
+            val takeRow=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
+            takeRow.addView(button(if(playingFile==file.absolutePath && player?.isPlaying==true) "Ⅱ  "+file.name else "▶  "+file.name){playTake(file)},LinearLayout.LayoutParams(0,-2,3f))
+            takeRow.addView(button("Delete"){AlertDialog.Builder(this@MainActivity).setTitle("Delete recording?").setMessage("Permanently delete this saved take? This cannot be undone.").setNegativeButton("Cancel",null).setPositiveButton("Delete"){_,_->deleteTake(file)}.show()},LinearLayout.LayoutParams(0,-2,1f))
+            library.addView(takeRow)
         }
+    }
+
+    private fun deleteTake(file:java.io.File){
+        if(playingFile==file.absolutePath){
+            try{player?.release()}catch(_:Exception){}
+            player=null;playingFile=null;playbackSeek=null;playbackTime=null
+            popupPlaybackSeek?.progress=0;popupPlaybackSeek?.isEnabled=false
+            popupPlaybackTime?.text="00:00 / 00:00";popupPlaybackButton?.text="▶ Play recording"
+            handler.removeCallbacks(playbackTick)
+        }
+        val deleted=try{file.delete()}catch(_:Exception){false}
+        if(deleted){renderLibrary();toast("Recording deleted from this phone.")}
+        else toast("Could not delete this recording.")
     }
 
     private fun deleteSong(title:String){
