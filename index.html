@@ -118,7 +118,7 @@ footer{text-align:center;color:#81908d;font-size:11px;padding:24px 0 5px}
  </div>
  <div id="stageLyrics">Your lyrics will appear here.</div>
  <div class="stage-hint" id="stageHint">Scroll can start automatically when you begin recording.</div>
- <div class="stage-bottom"><button class="secondary" id="fontDown">A−</button><button class="secondary" id="fontUp">A+</button><button class="primary" id="scrollTop">Back to top ↑</button></div>
+ <div class="stage-bottom"><button class="secondary" id="fontDown">A−</button><button class="secondary" id="fontUp">A+</button><button class="secondary" id="stageRecord">● Record</button><button class="primary" id="scrollTop">Top ↑</button></div>
 </section>
 <main id="libraryPage" hidden>
 <section class="card">
@@ -167,7 +167,9 @@ $('fontUp').onclick=()=>{stageFont=Math.min(48,stageFont+2);$('stageLyrics').sty
 $('writeTab').onclick=()=>showPage('write');$('libraryTab').onclick=()=>showPage('library');
 $('saveSong').onclick=async()=>{try{await saveCurrentSong()}catch(e){$('songStatus').textContent='Could not save. Check available storage in your browser.'}};
 $('newSong').onclick=()=>{currentSongId=null;window.currentCreatedAt=null;$('songTitle').value='';$('lyrics').value='';$('songNotes').value='';$('songStatus').textContent='Ready for a new song.';$('songTitle').focus()};
-function setRecordingUI(active){$('recordButton').classList.toggle('stop',active);$('recordButton').textContent=active?'■':'●';$('recordButton').setAttribute('aria-label',active?'Stop recording':'Start recording');$('recordState').textContent=active?'● Recording in progress':'Microphone is off';$('recordHint').textContent=active?'Tap the square to stop':'Tap the red button to begin'}
+function setRecordingUI(active){$('recordButton').classList.toggle('stop',active);$('recordButton').textContent=active?'■':'●';$('recordButton').setAttribute('aria-label',active?'Stop recording':'Start recording');$('recordState').textContent=active?'● Recording in progress':'Microphone is off';$('recordHint').textContent=active?'Tap the square to stop':'Tap the red button to begin';$('stageRecord').textContent=active?'■ Stop recording':'● Record'}
+$('stageRecord').onclick=()=>{$('recordButton').click()};
+
 $('recordButton').onclick=async()=>{
  if(recorder&&recorder.state==='recording'){recorder.stop();return}
  if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){$('recordStatus').textContent='Recording is not supported here. Open the published app in Chrome over HTTPS.';return}
