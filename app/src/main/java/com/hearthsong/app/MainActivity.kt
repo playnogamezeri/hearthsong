@@ -2,6 +2,7 @@ package com.hearthsong.app
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.content.Intent
 import android.graphics.Color
@@ -122,14 +123,24 @@ class MainActivity : Activity() {
         library.removeAllViews()
         val songs=JSONArray(prefs.getString("songs","[]"))
         for(i in 0 until songs.length()){
-            val s=songs.getJSONObject(i)
-            library.addView(button("♫ "+s.optString("title")){titleBox.setText(s.optString("title"));lyricsBox.setText(s.optString("lyrics"));lyricsBox.visibility=View.VISIBLE;lyricScroll.visibility=View.GONE})
+            val song=songs.getJSONObject(i)
+            val songTitle=song.optString("title")
+            val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
+            row.addView(button("Edit: "+songTitle){titleBox.setText(songTitle);lyricsBox.setText(song.optString("lyrics"));showPage(false);toast("Edit your lyrics, then tap Save song.")},LinearLayout.LayoutParams(0,-2,2f))
+            row.addView(button("Delete"){AlertDialog.Builder(this@MainActivity).setTitle("Delete song?").setMessage("Delete this song and its lyrics?").setNegativeButton("Cancel",null).setPositiveButton("Delete"){_,_->deleteSong(songTitle)}.show()},LinearLayout.LayoutParams(0,-2,1f))
+            library.addView(row)
         }
         val takes=filesDir.listFiles()?.filter{it.name.startsWith("take_")&&it.extension=="m4a"}?: emptyList()
         library.addView(TextView(this).apply{text="Saved recordings: "+takes.size; textSize=12f; setTextColor(Color.GRAY)})
         takes.sortedByDescending{it.lastModified()}.forEach{file->
             library.addView(button(if(playingFile==file.absolutePath && player?.isPlaying==true) "Ⅱ  "+file.name else "▶  "+file.name){playTake(file)})
         }
+    }
+
+    private fun deleteSong(title:String){
+        val old=JSONArray(prefs.getString("songs","[]"));val kept=JSONArray()
+        for(i in 0 until old.length())if(old.getJSONObject(i).optString("title")!=title)kept.put(old.getJSONObject(i))
+        prefs.edit().putString("songs",kept.toString()).apply();renderLibrary();toast("Song deleted.")
     }
 
     private fun playTake(file:java.io.File){
