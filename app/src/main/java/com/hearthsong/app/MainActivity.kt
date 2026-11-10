@@ -35,6 +35,7 @@ class MainActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var titleBox: EditText
     private lateinit var lyricsBox: EditText
+    private lateinit var youtubeLinkBox: EditText
     private lateinit var lyricView: TextView
     private lateinit var lyricScroll: ScrollView
     private lateinit var status: TextView
@@ -112,8 +113,12 @@ class MainActivity : Activity() {
         editorPage.addView(lyricsBox,LinearLayout.LayoutParams(-1,220))
         lyricsBox.isVerticalScrollBarEnabled=true
         lyricsBox.setPadding(12,12,12,12)
+        youtubeLinkBox=EditText(this).apply{hint="Optional YouTube backing-track link";setSingleLine(true);inputType=android.text.InputType.TYPE_TEXT_VARIATION_URI}
+        editorPage.addView(youtubeLinkBox)
+        editorPage.addView(button("Open YouTube video"){openYouTubeLink()})
+        editorPage.addView(TextView(this).apply{text="Tip: use headphones so the YouTube music does not leak into your microphone recording.";textSize=12f;setTextColor(Color.GRAY);setPadding(2,2,2,8)})
         editorPage.addView(button("Save song"){ saveSong(); toast("Saved on this phone.") })
-        editorPage.addView(button("New song"){editingSongTitle=null;titleBox.setText("");lyricsBox.setText("");titleBox.requestFocus();toast("Ready for a new song.")})
+        editorPage.addView(button("New song"){editingSongTitle=null;titleBox.setText("");lyricsBox.setText("");youtubeLinkBox.setText("");titleBox.requestFocus();toast("Ready for a new song.")})
         editorPage.addView(button("Open lyric-following screen"){ showLyrics() })
         lyricScroll=ScrollView(this).apply { visibility=View.GONE; setBackgroundColor(Color.rgb(248,252,251)) }
         lyricView=TextView(this).apply { textSize=27f; setTextColor(Color.rgb(20,35,33)); gravity=android.view.Gravity.CENTER; setPadding(14,28,14,300); setLineSpacing(12f,1f) }
@@ -154,9 +159,24 @@ class MainActivity : Activity() {
         recordButton.isActivated=isRecording
     }
 
+    private fun openYouTubeLink(){
+        if(!::youtubeLinkBox.isInitialized){toast("Enter a YouTube link in the song editor first.");return}
+        val raw=youtubeLinkBox.text.toString().trim()
+        if(raw.isBlank()){toast("Paste a YouTube video link in the song editor first.");return}
+        try{
+            val uri=android.net.Uri.parse(if(raw.startsWith("https://")||raw.startsWith("http://"))raw else "https://"+raw)
+            val host=uri.host?.lowercase()?.removePrefix("www.")
+            if(host !in setOf("youtube.com","m.youtube.com","youtu.be","music.youtube.com")){
+                toast("Please enter a valid YouTube video link.");return
+            }
+            startActivity(Intent(Intent.ACTION_VIEW,uri))
+            popupStatus?.text="YouTube opened. Use headphones to keep its sound out of your microphone recording."
+        }catch(_:Exception){toast("Could not open that YouTube link.")}
+    }
+
     private fun saveSong() {
         val title=titleBox.text.toString().trim().ifBlank{"Untitled song"}
-        val all=JSONArray(prefs.getString("songs","[]")); val item=JSONObject().put("title",title).put("lyrics",lyricsBox.text.toString())
+        val all=JSONArray(prefs.getString("songs","[]")); val item=JSONObject().put("title",title).put("lyrics",lyricsBox.text.toString()).put("youtubeUrl",if(::youtubeLinkBox.isInitialized)youtubeLinkBox.text.toString() else "")
         var found=false
         for(i in 0 until all.length()) if(all.getJSONObject(i).optString("title")==editingSongTitle || all.getJSONObject(i).optString("title")==title){all.put(i,item);found=true;break}
         if(!found) all.put(item)
@@ -172,7 +192,7 @@ class MainActivity : Activity() {
             val song=songs.getJSONObject(i)
             val songTitle=song.optString("title")
             val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
-            row.addView(button("Edit: "+songTitle){titleBox.setText(songTitle);lyricsBox.setText(song.optString("lyrics"));editingSongTitle=songTitle;showPage(false);toast("Edit your lyrics, then tap Save song.")},LinearLayout.LayoutParams(0,-2,2f))
+            row.addView(button("Edit: "+songTitle){titleBox.setText(songTitle);lyricsBox.setText(song.optString("lyrics"));youtubeLinkBox.setText(song.optString("youtubeUrl"));editingSongTitle=songTitle;showPage(false);toast("Edit your lyrics, then tap Save song.")},LinearLayout.LayoutParams(0,-2,2f))
             row.addView(button("Delete"){AlertDialog.Builder(this@MainActivity).setTitle("Delete song?").setMessage("Delete this song and its lyrics?").setNegativeButton("Cancel",null).setPositiveButton("Delete"){_,_->deleteSong(songTitle)}.show()},LinearLayout.LayoutParams(0,-2,1f))
             library.addView(row)
         }
@@ -267,6 +287,7 @@ class MainActivity : Activity() {
         shell.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
         val liveStatus=TextView(this).apply{text="Ready. Start following or record your performance.";textSize=12f;setTextColor(teal);setPadding(4,8,4,4)}
         shell.addView(liveStatus)
+        shell.addView(button("▶ Open YouTube backing track"){openYouTubeLink()})
         val liveTimer=TextView(this).apply{text="REC  00:00";textSize=16f;setTypeface(null,Typeface.BOLD);setTextColor(Color.rgb(190,45,50));gravity=android.view.Gravity.CENTER;setPadding(4,6,4,6)}
         shell.addView(liveTimer)
         val takes=filesDir.listFiles()?.filter{it.name.startsWith("take_")&&it.extension=="m4a"}?.sortedByDescending{it.lastModified()}?: emptyList()
