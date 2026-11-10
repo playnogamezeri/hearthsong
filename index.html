@@ -39,6 +39,17 @@ button{font:inherit;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowe
 .take-item audio{width:100%;height:38px}.take-actions{display:flex;gap:7px;margin-top:8px}.take-actions button{flex:1;padding:8px;font-size:12px}
 .empty{text-align:center;padding:25px 12px;color:var(--muted);font-size:13px}.empty .symbol{font-size:30px;color:var(--teal);margin-bottom:6px}
 .section-title{font-size:20px;letter-spacing:-.03em;margin:0 0 4px}
+.performance-launch{margin-top:10px}
+#lyricStage{position:fixed;inset:0;z-index:1000;background:#fff;display:flex;flex-direction:column;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom);height:100dvh}
+.stage-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.stage-top strong{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stage-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 0}
+.stage-controls label{margin:0;display:flex;align-items:center;gap:7px;flex:1;font-size:12px}
+.stage-controls input{width:100%;padding:0;accent-color:var(--teal)}
+#stageLyrics{flex:1;overflow-y:auto;overscroll-behavior:contain;white-space:pre-wrap;overflow-wrap:anywhere;text-align:center;padding:26px 10px 65vh;font:clamp(25px,6vw,36px)/1.85 Georgia,serif;scroll-behavior:auto}
+.stage-bottom{padding:10px 0;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center}
+.stage-bottom button{flex:1}
+.stage-hint{font-size:11px;color:var(--muted);text-align:center;padding:5px}
 [hidden]{display:none!important}
 footer{text-align:center;color:#81908d;font-size:11px;padding:24px 0 5px}
 @media(min-width:620px){.app{padding:24px 24px 50px}.card{padding:21px}}
@@ -74,6 +85,8 @@ footer{text-align:center;color:#81908d;font-size:11px;padding:24px 0 5px}
 
 
 "></textarea>
+ <button class="secondary full performance-launch" id="openPerformance">♫ Open lyric performance mode</button>
+ <p class="muted">Performance mode shows your lyrics in large type and can scroll automatically while you record.</p>
  <label for="songNotes">Notes (optional)</label>
  <textarea id="songNotes" style="min-height:85px;font:14px/1.5 system-ui" placeholder="Ideas, melody notes, guitar chords, or anything you want to remember…"></textarea>
  <div class="row" style="margin-top:12px"><button class="primary" id="saveSong">Save song</button><button class="secondary" id="newSong">New song</button></div>
@@ -97,6 +110,16 @@ footer{text-align:center;color:#81908d;font-size:11px;padding:24px 0 5px}
  <p class="muted" style="margin-top:13px">Recordings are saved on this device in this browser. Download important takes as backups. Clearing browser/site data can erase locally saved songs and recordings.</p>
 </section>
 </main>
+<section id="lyricStage" hidden aria-label="Lyric performance mode">
+ <div class="stage-top"><strong id="stageTitle">Your song</strong><button class="secondary" id="closePerformance">Close ✕</button></div>
+ <div class="stage-controls">
+  <label>Scroll speed <input id="scrollSpeed" type="range" min="0" max="60" step="1" value="16"><span id="scrollSpeedValue">16</span></label>
+  <button class="secondary" id="scrollToggle">Start scroll</button>
+ </div>
+ <div id="stageLyrics">Your lyrics will appear here.</div>
+ <div class="stage-hint" id="stageHint">Scroll can start automatically when you begin recording.</div>
+ <div class="stage-bottom"><button class="secondary" id="fontDown">A−</button><button class="secondary" id="fontUp">A+</button><button class="primary" id="scrollTop">Back to top ↑</button></div>
+</section>
 <main id="libraryPage" hidden>
 <section class="card">
  <div class="eyebrow">Your collection</div>
@@ -125,6 +148,22 @@ function durationText(sec){const n=Math.max(0,Math.floor(sec||0));return String(
 async function saveCurrentSong(){const title=$('songTitle').value.trim()||'Untitled song';const now=Date.now();const song={id:currentSongId||makeId(),title,lyrics:$('lyrics').value,notes:$('songNotes').value,updatedAt:now,createdAt:window.currentCreatedAt||now};await reqPromise(store('songs','readwrite').put(song));currentSongId=song.id;window.currentCreatedAt=song.createdAt;$('songTitle').value=title;$('songStatus').textContent='Song saved on this device.';return song}
 async function loadSong(id){const s=await reqPromise(store('songs').get(id));if(!s)return;currentSongId=s.id;window.currentCreatedAt=s.createdAt;$('songTitle').value=s.title;$('lyrics').value=s.lyrics||'';$('songNotes').value=s.notes||'';$('songStatus').textContent='Editing saved song.';showPage('write')}
 function showPage(which){const writing=which==='write';$('writePage').hidden=!writing;$('libraryPage').hidden=writing;$('writeTab').classList.toggle('active',writing);$('libraryTab').classList.toggle('active',!writing);if(!writing)refreshLibrary()}
+let scrollActive=false,scrollFrame=null,lastScrollStamp=0,scrollSpeed=16,stageFont=clampStageFont();
+function clampStageFont(){return 32}
+function syncStageLyrics(){const text=$('lyrics').value;$('stageLyrics').textContent=text||'Write your lyrics to see them here.';$('stageTitle').textContent=$('songTitle').value.trim()||'Untitled song'}
+function stopAutoScroll(){scrollActive=false;lastScrollStamp=0;if(scrollFrame)cancelAnimationFrame(scrollFrame);scrollFrame=null;$('scrollToggle').textContent='Start scroll'}
+function scrollStep(stamp){if(!scrollActive)return;if(!lastScrollStamp)lastScrollStamp=stamp;const delta=Math.min(50,stamp-lastScrollStamp);lastScrollStamp=stamp;const pane=$('stageLyrics');pane.scrollTop+=scrollSpeed*delta/1000;if(pane.scrollTop+pane.clientHeight>=pane.scrollHeight-2){stopAutoScroll();$('stageHint').textContent='End of lyrics.';return}scrollFrame=requestAnimationFrame(scrollStep)}
+function startAutoScroll(){if(scrollSpeed<=0){$('stageHint').textContent='Increase scroll speed to start.';return}scrollActive=true;lastScrollStamp=0;$('scrollToggle').textContent='Pause scroll';$('stageHint').textContent='Auto-scrolling. Tap Pause whenever you need.';scrollFrame=requestAnimationFrame(scrollStep)}
+$('openPerformance').onclick=()=>{syncStageLyrics();$('lyricStage').hidden=false;document.body.style.overflow='hidden';stopAutoScroll();$('stageLyrics').scrollTop=0};
+$('closePerformance').onclick=()=>{$('lyricStage').hidden=true;document.body.style.overflow='';stopAutoScroll()};
+$('lyrics').addEventListener('input',()=>{if(!$('lyricStage').hidden)syncStageLyrics()});
+$('songTitle').addEventListener('input',()=>{if(!$('lyricStage').hidden)syncStageLyrics()});
+$('scrollSpeed').oninput=()=>{scrollSpeed=Number($('scrollSpeed').value);$('scrollSpeedValue').textContent=scrollSpeed;if(scrollSpeed===0)stopAutoScroll()};
+$('scrollToggle').onclick=()=>scrollActive?stopAutoScroll():startAutoScroll();
+$('scrollTop').onclick=()=>{$('stageLyrics').scrollTop=0;stopAutoScroll()};
+$('fontDown').onclick=()=>{stageFont=Math.max(20,stageFont-2);$('stageLyrics').style.fontSize=stageFont+'px'};
+$('fontUp').onclick=()=>{stageFont=Math.min(48,stageFont+2);$('stageLyrics').style.fontSize=stageFont+'px'};
+
 $('writeTab').onclick=()=>showPage('write');$('libraryTab').onclick=()=>showPage('library');
 $('saveSong').onclick=async()=>{try{await saveCurrentSong()}catch(e){$('songStatus').textContent='Could not save. Check available storage in your browser.'}};
 $('newSong').onclick=()=>{currentSongId=null;window.currentCreatedAt=null;$('songTitle').value='';$('lyrics').value='';$('songNotes').value='';$('songStatus').textContent='Ready for a new song.';$('songTitle').focus()};
@@ -137,8 +176,8 @@ $('recordButton').onclick=async()=>{
   stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
   chunks=[];const mime=['audio/webm;codecs=opus','audio/webm','audio/mp4'].find(t=>MediaRecorder.isTypeSupported(t));pendingType=mime||'audio/webm';recorder=new MediaRecorder(stream,mime?{mimeType:mime}:undefined);
   recorder.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
-  recorder.onstop=()=>{pendingBlob=new Blob(chunks,{type:recorder.mimeType||pendingType});if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;clearInterval(timerHandle);setRecordingUI(false);$('recordState').textContent='Recording complete';$('recordHint').textContent='Listen before saving your take';$('preview').src=URL.createObjectURL(pendingBlob);$('previewBox').hidden=false;$('recordStatus').textContent='Your take is ready. Save it to keep it in My Songs.'};
-  recorder.start();startedAt=Date.now();setRecordingUI(true);$('recordStatus').textContent='Recording your song…';$('previewBox').hidden=true;$('timer').textContent='00:00';timerHandle=setInterval(()=>$('timer').textContent=durationText((Date.now()-startedAt)/1000),250);
+  recorder.onstop=()=>{stopAutoScroll();pendingBlob=new Blob(chunks,{type:recorder.mimeType||pendingType});if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;clearInterval(timerHandle);setRecordingUI(false);$('recordState').textContent='Recording complete';$('recordHint').textContent='Listen before saving your take';$('preview').src=URL.createObjectURL(pendingBlob);$('previewBox').hidden=false;$('recordStatus').textContent='Your take is ready. Save it to keep it in My Songs.'};
+  recorder.start();startedAt=Date.now();setRecordingUI(true);$('recordStatus').textContent='Recording your song…';if(!$('lyricStage').hidden){syncStageLyrics();startAutoScroll();}$('previewBox').hidden=true;$('timer').textContent='00:00';timerHandle=setInterval(()=>$('timer').textContent=durationText((Date.now()-startedAt)/1000),250);
  }catch(e){$('recordStatus').textContent=e.name==='NotAllowedError'?'Microphone permission was blocked. Allow microphone access in Chrome settings.':'Could not start recording. Check microphone permission and try again.';if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;setRecordingUI(false)}
 };
 $('keepTake').onclick=async()=>{if(!pendingBlob)return;try{const song=await saveCurrentSong();const take={id:makeId(),songId:song.id,songTitle:song.title,createdAt:Date.now(),duration:(Date.now()-startedAt)/1000,blob:pendingBlob,type:pendingBlob.type};await reqPromise(store('takes','readwrite').put(take));pendingBlob=null;$('previewBox').hidden=true;$('preview').removeAttribute('src');$('recordStatus').textContent='Recording saved in My Songs. ♥';$('timer').textContent=durationText(take.duration); }catch(e){$('recordStatus').textContent='Could not save this recording. Try downloading it as a backup.'}};
