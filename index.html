@@ -46,7 +46,11 @@ button{font:inherit;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowe
 .stage-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 0}
 .stage-controls label{margin:0;display:flex;align-items:center;gap:7px;flex:1;font-size:12px}
 .stage-controls input{width:100%;padding:0;accent-color:var(--teal)}
-#stageLyrics{flex:1;overflow-y:auto;overscroll-behavior:contain;white-space:pre-wrap;overflow-wrap:anywhere;text-align:center;padding:26px 10px 65vh;font:clamp(25px,6vw,36px)/1.85 Georgia,serif;scroll-behavior:auto}
+#stageLyrics{flex:1;overflow-y:auto;overscroll-behavior:contain;overflow-wrap:anywhere;text-align:center;padding:28px 10px 58vh;font:clamp(25px,6vw,36px)/1.75 Georgia,serif;scroll-behavior:auto;scrollbar-width:thin;scrollbar-color:#b8dcd6 transparent}
+.lyric-line{min-height:1.75em;padding:5px 10px;border-radius:13px;color:#9aa9a6;opacity:.58;transition:color .35s ease,opacity .35s ease,background .35s ease,transform .35s ease}
+.lyric-line.active{color:var(--deep);background:var(--soft);opacity:1;font-weight:700;transform:scale(1.015)}
+.lyric-line.past{opacity:.38}
+.lyric-line.spacer{min-height:.7em;padding:0}
 .stage-bottom{padding:10px 0;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center}
 .stage-bottom button{flex:1}
 .stage-hint{font-size:11px;color:var(--muted);text-align:center;padding:5px}
@@ -113,7 +117,7 @@ footer{text-align:center;color:#81908d;font-size:11px;padding:24px 0 5px}
 <section id="lyricStage" hidden aria-label="Lyric performance mode">
  <div class="stage-top"><strong id="stageTitle">Your song</strong><button class="secondary" id="closePerformance">Close ✕</button></div>
  <div class="stage-controls">
-  <label>Scroll speed <input id="scrollSpeed" type="range" min="0" max="60" step="1" value="16"><span id="scrollSpeedValue">16</span></label>
+  <label>Scroll speed <input id="scrollSpeed" type="range" min="0" max="36" step="1" value="10"><span id="scrollSpeedValue">10</span></label>
   <button class="secondary" id="scrollToggle">Start scroll</button>
  </div>
  <div id="stageLyrics">Your lyrics will appear here.</div>
@@ -148,21 +152,22 @@ function durationText(sec){const n=Math.max(0,Math.floor(sec||0));return String(
 async function saveCurrentSong(){const title=$('songTitle').value.trim()||'Untitled song';const now=Date.now();const song={id:currentSongId||makeId(),title,lyrics:$('lyrics').value,notes:$('songNotes').value,updatedAt:now,createdAt:window.currentCreatedAt||now};await reqPromise(store('songs','readwrite').put(song));currentSongId=song.id;window.currentCreatedAt=song.createdAt;$('songTitle').value=title;$('songStatus').textContent='Song saved on this device.';return song}
 async function loadSong(id){const s=await reqPromise(store('songs').get(id));if(!s)return;currentSongId=s.id;window.currentCreatedAt=s.createdAt;$('songTitle').value=s.title;$('lyrics').value=s.lyrics||'';$('songNotes').value=s.notes||'';$('songStatus').textContent='Editing saved song.';showPage('write')}
 function showPage(which){const writing=which==='write';$('writePage').hidden=!writing;$('libraryPage').hidden=writing;$('writeTab').classList.toggle('active',writing);$('libraryTab').classList.toggle('active',!writing);if(!writing)refreshLibrary()}
-let scrollActive=false,scrollFrame=null,lastScrollStamp=0,scrollSpeed=16,stageFont=clampStageFont();
+let scrollActive=false,scrollFrame=null,lastScrollStamp=0,scrollSpeed=10,stageFont=clampStageFont();
 function clampStageFont(){return 32}
-function syncStageLyrics(){const text=$('lyrics').value;$('stageLyrics').textContent=text||'Write your lyrics to see them here.';$('stageTitle').textContent=$('songTitle').value.trim()||'Untitled song'}
+function syncStageLyrics(){const text=$('lyrics').value;$('stageTitle').textContent=$('songTitle').value.trim()||'Untitled song';const pane=$('stageLyrics');pane.replaceChildren();const lines=(text||'Write your lyrics to see them here.').split(/\\r?\\n/);lines.forEach((line,index)=>{const item=document.createElement('div');item.className=line.trim()?'lyric-line':'lyric-line spacer';item.dataset.line=String(index);item.textContent=line||' ';pane.append(item)});updateStageActiveLine() }
+function updateStageActiveLine(){const pane=$('stageLyrics'),items=[...pane.querySelectorAll('.lyric-line')];if(!items.length)return;const center=pane.scrollTop+pane.clientHeight*.48;let active=0,best=Infinity;items.forEach((item,index)=>{const midpoint=item.offsetTop+item.offsetHeight/2;const distance=Math.abs(midpoint-center);if(distance<best){best=distance;active=index}});items.forEach((item,index)=>{item.classList.toggle('active',index===active);item.classList.toggle('past',index<active)})}
 function stopAutoScroll(){scrollActive=false;lastScrollStamp=0;if(scrollFrame)cancelAnimationFrame(scrollFrame);scrollFrame=null;$('scrollToggle').textContent='Start scroll'}
-function scrollStep(stamp){if(!scrollActive)return;if(!lastScrollStamp)lastScrollStamp=stamp;const delta=Math.min(50,stamp-lastScrollStamp);lastScrollStamp=stamp;const pane=$('stageLyrics');pane.scrollTop+=scrollSpeed*delta/1000;if(pane.scrollTop+pane.clientHeight>=pane.scrollHeight-2){stopAutoScroll();$('stageHint').textContent='End of lyrics.';return}scrollFrame=requestAnimationFrame(scrollStep)}
+function scrollStep(stamp){if(!scrollActive)return;if(!lastScrollStamp)lastScrollStamp=stamp;const delta=Math.min(50,stamp-lastScrollStamp);lastScrollStamp=stamp;const pane=$('stageLyrics');pane.scrollTop+=scrollSpeed*delta/1000;updateStageActiveLine();if(pane.scrollTop+pane.clientHeight>=pane.scrollHeight-2){stopAutoScroll();$('stageHint').textContent='End of lyrics.';return}scrollFrame=requestAnimationFrame(scrollStep)}
 function startAutoScroll(){if(scrollSpeed<=0){$('stageHint').textContent='Increase scroll speed to start.';return}scrollActive=true;lastScrollStamp=0;$('scrollToggle').textContent='Pause scroll';$('stageHint').textContent='Auto-scrolling. Tap Pause whenever you need.';scrollFrame=requestAnimationFrame(scrollStep)}
-$('openPerformance').onclick=()=>{syncStageLyrics();$('lyricStage').hidden=false;document.body.style.overflow='hidden';stopAutoScroll();$('stageLyrics').scrollTop=0};
+$('openPerformance').onclick=()=>{syncStageLyrics();$('lyricStage').hidden=false;document.body.style.overflow='hidden';stopAutoScroll();$('stageLyrics').scrollTop=0;updateStageActiveLine()};
 $('closePerformance').onclick=()=>{$('lyricStage').hidden=true;document.body.style.overflow='';stopAutoScroll()};
 $('lyrics').addEventListener('input',()=>{if(!$('lyricStage').hidden)syncStageLyrics()});
 $('songTitle').addEventListener('input',()=>{if(!$('lyricStage').hidden)syncStageLyrics()});
-$('scrollSpeed').oninput=()=>{scrollSpeed=Number($('scrollSpeed').value);$('scrollSpeedValue').textContent=scrollSpeed;if(scrollSpeed===0)stopAutoScroll()};
+$('scrollSpeed').oninput=()=>{scrollSpeed=Number($('scrollSpeed').value);$('scrollSpeedValue').textContent=scrollSpeed;if(scrollSpeed===0)stopAutoScroll()};$('stageLyrics').addEventListener('scroll',()=>{if(!scrollActive)updateStageActiveLine()},{passive:true});
 $('scrollToggle').onclick=()=>scrollActive?stopAutoScroll():startAutoScroll();
-$('scrollTop').onclick=()=>{$('stageLyrics').scrollTop=0;stopAutoScroll()};
-$('fontDown').onclick=()=>{stageFont=Math.max(20,stageFont-2);$('stageLyrics').style.fontSize=stageFont+'px'};
-$('fontUp').onclick=()=>{stageFont=Math.min(48,stageFont+2);$('stageLyrics').style.fontSize=stageFont+'px'};
+$('scrollTop').onclick=()=>{$('stageLyrics').scrollTop=0;stopAutoScroll();updateStageActiveLine()};
+$('fontDown').onclick=()=>{stageFont=Math.max(20,stageFont-2);$('stageLyrics').style.fontSize=stageFont+'px';updateStageActiveLine()};
+$('fontUp').onclick=()=>{stageFont=Math.min(48,stageFont+2);$('stageLyrics').style.fontSize=stageFont+'px';updateStageActiveLine()};
 
 $('writeTab').onclick=()=>showPage('write');$('libraryTab').onclick=()=>showPage('library');
 $('saveSong').onclick=async()=>{try{await saveCurrentSong()}catch(e){$('songStatus').textContent='Could not save. Check available storage in your browser.'}};
