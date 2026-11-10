@@ -6,9 +6,9 @@ const inlineScripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)]
   .filter(source => source.trim());
 
 if (inlineScripts.length === 0) throw new Error("No inline application script found.");
-for (const [index, source] of inlineScripts.entries()) {
-  new Function(source);
-  console.log(\`PASS: inline JavaScript block \${index + 1} parses\`);
+for (let index = 0; index < inlineScripts.length; index++) {
+  new Function(inlineScripts[index]);
+  console.log("PASS: inline JavaScript block " + (index + 1) + " parses");
 }
 
 const requiredIds = [
@@ -17,17 +17,17 @@ const requiredIds = [
   "libraryPage", "songList", "takeList"
 ];
 for (const id of requiredIds) {
-  if (!new RegExp(\`id=["']\${id}["']\`).test(html)) {
-    throw new Error(\`Missing required UI element: #\${id}\`);
+  if (!html.includes('id="' + id + '"') && !html.includes("id='" + id + "'")) {
+    throw new Error("Missing required UI element: #" + id);
   }
-  console.log(\`PASS: #\${id} exists\`);
+  console.log("PASS: #" + id + " exists");
 }
 
 for (const feature of ["updateStageActiveLine", "startAutoScroll", "saveCurrentSong", "deleteSong", "deleteTake"]) {
   if (!inlineScripts.some(source => source.includes(feature))) {
-    throw new Error(\`Missing required feature: \${feature}\`);
+    throw new Error("Missing required feature: " + feature);
   }
-  console.log(\`PASS: \${feature} is present\`);
+  console.log("PASS: " + feature + " is present");
 }
 
 console.log("Hearthsong website self-test passed.");
