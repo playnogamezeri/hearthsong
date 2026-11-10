@@ -182,7 +182,12 @@ class MainActivity : Activity() {
         scroll.addView(display,android.widget.FrameLayout.LayoutParams(-1,-2))
         shell.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
         val controls=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
-        controls.addView(button("Stop following"){stopFollowing();toast("Lyric following paused.")},LinearLayout.LayoutParams(0,-2,1f))
+        lateinit var followControl:Button
+        followControl=button("Start following"){
+            if(following){stopFollowing();followControl.text="Start following"}
+            else{startFollowing();followControl.text="Stop following"}
+        }
+        controls.addView(followControl,LinearLayout.LayoutParams(0,-2,1f))
         controls.addView(button("Close"){stopFollowing();dialog.dismiss()},LinearLayout.LayoutParams(0,-2,1f))
         shell.addView(controls)
         dialog.setContentView(shell)
@@ -223,7 +228,7 @@ class MainActivity : Activity() {
     private fun startFollowing(){
         if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO),41);return}
         if(Build.VERSION.SDK_INT<31 || !SpeechRecognizer.isOnDeviceRecognitionAvailable(this)){status.text="On-device speech recognition unavailable. No online service will be used.";return}
-        showLyrics()
+        if(popupLyricText==null)showLyrics()
         try{
             speech=SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
             speech?.setRecognitionListener(object:RecognitionListener{
