@@ -90,7 +90,7 @@ footer{text-align:center;color:#81908d;font-size:11px;padding:24px 0 5px}
 
 "></textarea>
  <button class="secondary full performance-launch" id="openPerformance">♫ Open lyric performance mode</button>
- <p class="muted">Performance mode shows your lyrics in large type and can scroll automatically while you record.</p>
+ <p class="muted">Performance mode keeps your lyrics large and readable. Manual scrolling is available; private on-device voice following is available in the Android app.</p>
  <label for="songNotes">Notes (optional)</label>
  <textarea id="songNotes" style="min-height:85px;font:14px/1.5 system-ui" placeholder="Ideas, melody notes, guitar chords, or anything you want to remember…"></textarea>
  <div class="row" style="margin-top:12px"><button class="primary" id="saveSong">Save song</button><button class="secondary" id="newSong">New song</button></div>
@@ -118,10 +118,10 @@ footer{text-align:center;color:#81908d;font-size:11px;padding:24px 0 5px}
  <div class="stage-top"><strong id="stageTitle">Your song</strong><button class="secondary" id="closePerformance">Close ✕</button></div>
  <div class="stage-controls">
   <label>Scroll speed <input id="scrollSpeed" type="range" min="0" max="36" step="1" value="10"><span id="scrollSpeedValue">10</span></label>
-  <button class="secondary" id="scrollToggle">Start scroll</button>
+  <button class="secondary" id="scrollToggle">Start timed scroll</button>
  </div>
  <div id="stageLyrics">Your lyrics will appear here.</div>
- <div class="stage-hint" id="stageHint">Scroll can start automatically when you begin recording.</div>
+ <div class="stage-hint" id="stageHint">Web version: manual timed scrolling only. Voice-following stays on-device in the Android app.</div>
  <div class="stage-bottom"><button class="secondary" id="fontDown">A−</button><button class="secondary" id="fontUp">A+</button><button class="secondary" id="stageRecord">● Record</button><button class="primary" id="scrollTop">Top ↑</button></div>
 </section>
 <main id="libraryPage" hidden>
@@ -156,9 +156,9 @@ let scrollActive=false,scrollFrame=null,lastScrollStamp=0,scrollSpeed=10,stageFo
 function clampStageFont(){return 32}
 function syncStageLyrics(){const text=$('lyrics').value;$('stageTitle').textContent=$('songTitle').value.trim()||'Untitled song';const pane=$('stageLyrics');pane.replaceChildren();const lines=(text||'Write your lyrics to see them here.').split(/\\r?\\n/);lines.forEach((line,index)=>{const item=document.createElement('div');item.className=line.trim()?'lyric-line':'lyric-line spacer';item.dataset.line=String(index);item.textContent=line||' ';pane.append(item)});updateStageActiveLine() }
 function updateStageActiveLine(){const pane=$('stageLyrics'),items=[...pane.querySelectorAll('.lyric-line')];if(!items.length)return;const center=pane.scrollTop+pane.clientHeight*.48;let active=0,best=Infinity;items.forEach((item,index)=>{const midpoint=item.offsetTop+item.offsetHeight/2;const distance=Math.abs(midpoint-center);if(distance<best){best=distance;active=index}});items.forEach((item,index)=>{item.classList.toggle('active',index===active);item.classList.toggle('past',index<active)})}
-function stopAutoScroll(){scrollActive=false;lastScrollStamp=0;if(scrollFrame)cancelAnimationFrame(scrollFrame);scrollFrame=null;$('scrollToggle').textContent='Start scroll'}
+function stopAutoScroll(){scrollActive=false;lastScrollStamp=0;if(scrollFrame)cancelAnimationFrame(scrollFrame);scrollFrame=null;$('scrollToggle').textContent='Start timed scroll'}
 function scrollStep(stamp){if(!scrollActive)return;if(!lastScrollStamp)lastScrollStamp=stamp;const delta=Math.min(50,stamp-lastScrollStamp);lastScrollStamp=stamp;const pane=$('stageLyrics');pane.scrollTop+=scrollSpeed*delta/1000;updateStageActiveLine();if(pane.scrollTop+pane.clientHeight>=pane.scrollHeight-2){stopAutoScroll();$('stageHint').textContent='End of lyrics.';return}scrollFrame=requestAnimationFrame(scrollStep)}
-function startAutoScroll(){if(scrollSpeed<=0){$('stageHint').textContent='Increase scroll speed to start.';return}scrollActive=true;lastScrollStamp=0;$('scrollToggle').textContent='Pause scroll';$('stageHint').textContent='Auto-scrolling. Tap Pause whenever you need.';scrollFrame=requestAnimationFrame(scrollStep)}
+function startAutoScroll(){if(scrollSpeed<=0){$('stageHint').textContent='Increase scroll speed to start.';return}scrollActive=true;lastScrollStamp=0;$('scrollToggle').textContent='Pause scroll';$('stageHint').textContent='Timed scrolling is active. This is not voice-synchronized.';scrollFrame=requestAnimationFrame(scrollStep)}
 $('openPerformance').onclick=()=>{syncStageLyrics();$('lyricStage').hidden=false;document.body.style.overflow='hidden';stopAutoScroll();$('stageLyrics').scrollTop=0;updateStageActiveLine()};
 $('closePerformance').onclick=()=>{$('lyricStage').hidden=true;document.body.style.overflow='';stopAutoScroll()};
 $('lyrics').addEventListener('input',()=>{if(!$('lyricStage').hidden)syncStageLyrics()});
@@ -184,7 +184,7 @@ $('recordButton').onclick=async()=>{
   chunks=[];const mime=['audio/webm;codecs=opus','audio/webm','audio/mp4'].find(t=>MediaRecorder.isTypeSupported(t));pendingType=mime||'audio/webm';recorder=new MediaRecorder(stream,mime?{mimeType:mime}:undefined);
   recorder.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
   recorder.onstop=()=>{stopAutoScroll();pendingBlob=new Blob(chunks,{type:recorder.mimeType||pendingType});if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;clearInterval(timerHandle);setRecordingUI(false);$('recordState').textContent='Recording complete';$('recordHint').textContent='Listen before saving your take';$('preview').src=URL.createObjectURL(pendingBlob);$('previewBox').hidden=false;$('recordStatus').textContent='Your take is ready. Save it to keep it in My Songs.'};
-  recorder.start();startedAt=Date.now();setRecordingUI(true);$('recordStatus').textContent='Recording your song…';if(!$('lyricStage').hidden){syncStageLyrics();startAutoScroll();}$('previewBox').hidden=true;$('timer').textContent='00:00';timerHandle=setInterval(()=>$('timer').textContent=durationText((Date.now()-startedAt)/1000),250);
+  recorder.start();startedAt=Date.now();setRecordingUI(true);$('recordStatus').textContent='Recording your song…';if(!$('lyricStage').hidden){syncStageLyrics();$('stageHint').textContent='Recording started. Web version does not listen for lyric matching; use manual timed scrolling or the Android app.';}$('previewBox').hidden=true;$('timer').textContent='00:00';timerHandle=setInterval(()=>$('timer').textContent=durationText((Date.now()-startedAt)/1000),250);
  }catch(e){$('recordStatus').textContent=e.name==='NotAllowedError'?'Microphone permission was blocked. Allow microphone access in Chrome settings.':'Could not start recording. Check microphone permission and try again.';if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;setRecordingUI(false)}
 };
 $('keepTake').onclick=async()=>{if(!pendingBlob)return;try{const song=await saveCurrentSong();const take={id:makeId(),songId:song.id,songTitle:song.title,createdAt:Date.now(),duration:(Date.now()-startedAt)/1000,blob:pendingBlob,type:pendingBlob.type};await reqPromise(store('takes','readwrite').put(take));pendingBlob=null;$('previewBox').hidden=true;$('preview').removeAttribute('src');$('recordStatus').textContent='Recording saved in My Songs. ♥';$('timer').textContent=durationText(take.duration); }catch(e){$('recordStatus').textContent='Could not save this recording. Try downloading it as a backup.'}};
