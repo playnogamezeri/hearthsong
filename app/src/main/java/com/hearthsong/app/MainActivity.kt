@@ -86,6 +86,19 @@ class MainActivity : Activity() {
     private var currentLineIndex = 0
     private var speech: SpeechRecognizer? = null
     private var following = false
+    private val autoScrollTick = object : Runnable {
+        override fun run() {
+            if (!following || popupLyricText == null) return
+            if (currentLineIndex < lyricLines.lastIndex) {
+                var next = currentLineIndex + 1
+                while (next < lyricLines.lastIndex && lyricLines[next].isBlank()) next++
+                currentLineIndex = next
+                renderActiveLyricLine(true)
+            }
+            if (currentLineIndex < lyricLines.lastIndex) handler.postDelayed(this, 6500)
+            else popupStatus?.text = "Reached the end of the lyrics. Stop or restart following."
+        }
+    }
     private var recorder: MediaRecorder? = null
     private var audioRecord: AudioRecord? = null
     @Volatile private var pitchRunning = false
@@ -331,25 +344,37 @@ class MainActivity : Activity() {
         }
     }
     private fun startFollowing(){
-        if(recorder!=null){stopRecording();popupStatus?.text="Recording stopped so the microphone can listen for lyrics."}
-        if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO),41);return}
-        if(Build.VERSION.SDK_INT<31 || !SpeechRecognizer.isOnDeviceRecognitionAvailable(this)){status.text="On-device speech recognition unavailable. No online service will be used.";return}
-        if(popupLyricText==null)showLyrics()
+        if (popupLyricText == null) showLyrics()
+        if (recorder != null) { stopRecording(); popupStatus?.text = "Recording stopped so following can use the microphone." }
+        following = true
+        handler.removeCallbacks(autoScrollTick)
+        handler.postDelayed(autoScrollTick, 6500)
+        popupFollowButton?.text = "Stop following"
+        popupStatus?.text = "Slow lyric scrolling started. Voice matching will adjust the highlight when it recognizes your words."
+        if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO),41)
+            return
+        }
+        if(Build.VERSION.SDK_INT<31 || !SpeechRecognizer.isOnDeviceRecognitionAvailable(this)){
+            popupStatus?.text = "Slow lyric scrolling is active. On-device voice matching is unavailable on this phone."
+            return
+        }
         try{
             speech=SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
             speech?.setRecognitionListener(object:RecognitionListener{
-                override fun onReadyForSpeech(params:Bundle?){status.text="Listening on this phone…"}
-                override fun onBeginningOfSpeech(){status.text="I hear you singing…"}
+                override fun onReadyForSpeech(params:Bundle?){popupStatus?.text="Slow scrolling active · listening on this phone…"}
+                override fun onBeginningOfSpeech(){popupStatus?.text="I hear you singing…"}
                 override fun onRmsChanged(rmsdB:Float){}
                 override fun onBufferReceived(buffer:ByteArray?){}
                 override fun onEndOfSpeech(){}
-                override fun onError(error:Int){if(following && error!=SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS && error!=SpeechRecognizer.ERROR_CLIENT)restartSpeech() else if(error!=SpeechRecognizer.ERROR_CLIENT){popupStatus?.text="Voice following stopped. Check microphone permission.";stopFollowing()}}
+                override fun onError(error:Int){if(following && error!=SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS && error!=SpeechRecognizer.ERROR_CLIENT)restartSpeech() else if(error!=SpeechRecognizer.ERROR_CLIENT){popupStatus?.text="Slow scrolling continues; voice matching stopped.";try{speech?.destroy()}catch(_:Exception){};speech=null}}
                 override fun onResults(results:Bundle?){updateLyrics(results);restartSpeech()}
                 override fun onPartialResults(results:Bundle?){updateLyrics(results)}
                 override fun onEvent(eventType:Int,params:Bundle?){}
             })
-            following=true; popupStatus?.text="Listening on this phone. Sing clearly; guitar strumming may affect recognition.";popupFollowButton?.text="Stop following";pitchView.text="Pitch monitor pauses while lyric following uses the microphone."; listen()
-        }catch(e:Exception){following=false;status.text="Could not start local speech recognition."}
+            pitchView.text="Pitch monitor pauses while lyric following uses the microphone."
+            listen()
+        }catch(e:Exception){popupStatus?.text="Slow scrolling is active, but local voice matching could not start."}
     }
 
     private fun listen(){
@@ -386,6 +411,7 @@ class MainActivity : Activity() {
     }
     private fun stopFollowing(){
         following=false
+        handler.removeCallbacks(autoScrollTick)
         try{speech?.stopListening();speech?.destroy()}catch(_:Exception){}
         speech=null; status.text="Lyric following stopped.";popupStatus?.text="Lyric following stopped.";popupFollowButton?.text="Start following"
     }
