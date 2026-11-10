@@ -28,6 +28,10 @@ import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.concurrent.thread
 import kotlin.math.ln
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
+import org.json.JSONException
 
 class MainActivity : Activity() {
     private val teal = Color.rgb(22,143,136)
@@ -67,6 +71,8 @@ class MainActivity : Activity() {
         }
     }
     private var editingSongTitle: String? = null
+    private val backupCreateRequest = 701
+    private val backupRestoreRequest = 702
     private var popupLyricScroll: ScrollView? = null
     private var popupLyricText: TextView? = null
     private var popupStatus: TextView? = null
@@ -133,6 +139,9 @@ class MainActivity : Activity() {
         editorPage.addView(row)
         editorPage.addView(button("Back to writing"){ stopFollowing(); lyricScroll.visibility=View.GONE; lyricsBox.visibility=View.VISIBLE })
         libraryPage.addView(TextView(this).apply { text="MY SONGS & TAKES"; textSize=18f; setTextColor(teal); setPadding(0,12,0,8) })
+        libraryPage.addView(button("Create backup file"){createBackupPicker()})
+        libraryPage.addView(button("Restore from backup file"){restoreBackupPicker()})
+        libraryPage.addView(TextView(this).apply{text="Backups include your saved lyrics, YouTube links and audio recordings. Keep the backup somewhere safe.";textSize=12f;setTextColor(Color.GRAY);setPadding(4,2,4,10)})
         library=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
         val listScroll=ScrollView(this).apply { isNestedScrollingEnabled=true; isVerticalScrollBarEnabled=true }
         listScroll.addView(library); libraryPage.addView(listScroll,LinearLayout.LayoutParams(-1,-2))
@@ -239,6 +248,121 @@ class MainActivity : Activity() {
         val deleted=try{file.delete()}catch(_:Exception){false}
         if(deleted){renderLibrary();toast("Recording deleted from this phone.")}
         else toast("Could not delete this recording.")
+    }
+
+
+    private fun createBackupPicker(){
+        val intent=Intent(Intent.ACTION_CREATE_DOCUMENT).apply{
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type="application/zip"
+            putExtra(Intent.EXTRA_TITLE,"Hearthsong-backup-"+java.text.SimpleDateFormat("yyyyMMdd-HHmm",java.util.Locale.US).format(java.util.Date())+".zip")
+        }
+        startActivityForResult(intent,backupCreateRequest)
+    }
+
+    private fun restoreBackupPicker(){
+        AlertDialog.Builder(this).setTitle("Restore Hearthsong backup?")
+            .setMessage("This adds songs and recordings from a backup to this app. Existing songs and recordings will not be deleted.")
+            .setNegativeButton("Cancel",null)
+            .setPositiveButton("Choose backup"){_,_->
+                val intent=Intent(Intent.ACTION_OPEN_DOCUMENT).apply{
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type="application/zip"
+                    putExtra(Intent.EXTRA_MIME_TYPES,arrayOf("application/zip","application/octet-stream"))
+                }
+                startActivityForResult(intent,backupRestoreRequest)
+            }.show()
+    }
+
+    private fun writeBackup(uri:android.net.Uri){
+        try{
+            val songs=prefs.getString("songs","[]")?:"[]"
+            val takes=filesDir.listFiles()?.filter{it.name.startsWith("take_")&&it.extension=="m4a"}?: emptyList()
+            val metadata=JSONObject().put("app","Hearthsong").put("formatVersion",1).put("createdAt",System.currentTimeMillis()).put("songs",JSONArray(songs))
+            val names=JSONArray()
+            takes.forEach{names.put(it.name)}
+            metadata.put("recordings",names)
+            contentResolver.openOutputStream(uri)?.use{raw->
+                ZipOutputStream(raw).use{zip->
+                    zip.putNextEntry(ZipEntry("hearthsong-backup.json"))
+                    zip.write(metadata.toString().toByteArray(Charsets.UTF_8))
+                    zip.closeEntry()
+                    takes.forEach{file->
+                        zip.putNextEntry(ZipEntry("recordings/"+file.name))
+                        file.inputStream().use{input->input.copyTo(zip)}
+                        zip.closeEntry()
+                    }
+                }
+            }?:throw java.io.IOException("Could not open the selected backup location.")
+            toast("Backup created: "+takes.size+" recordings included.")
+        }catch(e:Exception){toast("Backup failed: "+(e.message?:"unknown error"))}
+    }
+
+    private fun readBackup(uri:android.net.Uri){
+        val tempDir=java.io.File(cacheDir,"hearthsong_restore_"+System.currentTimeMillis())
+        try{
+            if(!tempDir.mkdirs())throw java.io.IOException("Could not prepare temporary restore space.")
+            var metadata:JSONObject?=null
+            contentResolver.openInputStream(uri)?.use{raw->
+                ZipInputStream(raw).use{zip->
+                    var entry=zip.nextEntry
+                    while(entry!=null){
+                        if(!entry.isDirectory){
+                            val name=entry.name
+                            if(name=="hearthsong-backup.json"){
+                                val text=zip.readBytes().toString(Charsets.UTF_8)
+                                metadata=JSONObject(text)
+                            }else if(name.startsWith("recordings/") && name.removePrefix("recordings/").matches(Regex("take_[0-9]+\\.m4a"))){
+                                val out=java.io.File(tempDir,name.substringAfterLast('/'))
+                                out.outputStream().use{zip.copyTo(it)}
+                            }
+                        }
+                        zip.closeEntry()
+                        entry=zip.nextEntry
+                    }
+                }
+            }?:throw java.io.IOException("Could not read the selected file.")
+            val data=metadata?:throw java.io.IOException("This is not a Hearthsong backup.")
+            if(data.optString("app")!="Hearthsong" || data.optInt("formatVersion",-1)!=1)throw java.io.IOException("This Hearthsong backup version is not supported.")
+            val incoming=data.optJSONArray("songs")?:JSONArray()
+            val existing=JSONArray(prefs.getString("songs","[]"))
+            val merged=JSONArray()
+            val seen=mutableSetOf<String>()
+            for(i in 0 until existing.length()){
+                val item=existing.optJSONObject(i)?:continue
+                merged.put(item);seen.add(item.optString("title"))
+            }
+            for(i in 0 until incoming.length()){
+                val item=incoming.optJSONObject(i)?:continue
+                val title=item.optString("title")
+                if(title !in seen){merged.put(item);seen.add(title)}
+            }
+            var restored=0
+            tempDir.listFiles()?.forEach{source->
+                var target=java.io.File(filesDir,source.name)
+                if(target.exists()){
+                    val base=source.name.removeSuffix(".m4a")
+                    var suffix=1
+                    do{target=java.io.File(filesDir,base+"_restored"+suffix+".m4a");suffix++}while(target.exists())
+                }
+                source.copyTo(target,false);restored++
+            }
+            prefs.edit().putString("songs",merged.toString()).apply()
+            renderLibrary()
+            toast("Restore complete: "+restored+" recordings added. Existing content kept.")
+        }catch(e:Exception){toast("Restore failed: "+(e.message?:"file could not be read"))}
+        finally{tempDir.deleteRecursively()}
+    }
+
+    @Deprecated("Deprecated in Android")
+    override fun onActivityResult(requestCode:Int,resultCode:Int,data:Intent?){
+        super.onActivityResult(requestCode,resultCode,data)
+        if(resultCode!=RESULT_OK)return
+        val uri=data?.data?:return
+        when(requestCode){
+            backupCreateRequest->writeBackup(uri)
+            backupRestoreRequest->readBackup(uri)
+        }
     }
 
     private fun deleteSong(title:String){
