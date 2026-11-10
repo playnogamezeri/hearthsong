@@ -45,6 +45,7 @@ class MainActivity : Activity() {
     private lateinit var libraryPage: LinearLayout
     private var player: MediaPlayer? = null
     private var playingFile: String? = null
+    private var editingSongTitle: String? = null
     private var popupLyricScroll: ScrollView? = null
     private var popupLyricText: TextView? = null
     private var lyricLines: List<String> = emptyList()
@@ -76,6 +77,7 @@ class MainActivity : Activity() {
         lyricsBox.isVerticalScrollBarEnabled=true
         lyricsBox.setPadding(12,12,12,12)
         editorPage.addView(button("Save song"){ saveSong(); toast("Saved on this phone.") })
+        editorPage.addView(button("New song"){editingSongTitle=null;titleBox.setText("");lyricsBox.setText("");titleBox.requestFocus();toast("Ready for a new song.")})
         editorPage.addView(button("Open lyric-following screen"){ showLyrics() })
         lyricScroll=ScrollView(this).apply { visibility=View.GONE; setBackgroundColor(Color.rgb(248,252,251)) }
         lyricView=TextView(this).apply { textSize=27f; setTextColor(Color.rgb(20,35,33)); gravity=android.view.Gravity.CENTER; setPadding(14,28,14,300); setLineSpacing(12f,1f) }
@@ -120,8 +122,9 @@ class MainActivity : Activity() {
         val title=titleBox.text.toString().trim().ifBlank{"Untitled song"}
         val all=JSONArray(prefs.getString("songs","[]")); val item=JSONObject().put("title",title).put("lyrics",lyricsBox.text.toString())
         var found=false
-        for(i in 0 until all.length()) if(all.getJSONObject(i).optString("title")==title){all.put(i,item);found=true;break}
+        for(i in 0 until all.length()) if(all.getJSONObject(i).optString("title")==editingSongTitle || all.getJSONObject(i).optString("title")==title){all.put(i,item);found=true;break}
         if(!found) all.put(item)
+        editingSongTitle=title
         prefs.edit().putString("songs",all.toString()).apply(); renderLibrary()
     }
 
@@ -133,7 +136,7 @@ class MainActivity : Activity() {
             val song=songs.getJSONObject(i)
             val songTitle=song.optString("title")
             val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
-            row.addView(button("Edit: "+songTitle){titleBox.setText(songTitle);lyricsBox.setText(song.optString("lyrics"));showPage(false);toast("Edit your lyrics, then tap Save song.")},LinearLayout.LayoutParams(0,-2,2f))
+            row.addView(button("Edit: "+songTitle){titleBox.setText(songTitle);lyricsBox.setText(song.optString("lyrics"));editingSongTitle=songTitle;showPage(false);toast("Edit your lyrics, then tap Save song.")},LinearLayout.LayoutParams(0,-2,2f))
             row.addView(button("Delete"){AlertDialog.Builder(this@MainActivity).setTitle("Delete song?").setMessage("Delete this song and its lyrics?").setNegativeButton("Cancel",null).setPositiveButton("Delete"){_,_->deleteSong(songTitle)}.show()},LinearLayout.LayoutParams(0,-2,1f))
             library.addView(row)
         }
@@ -176,7 +179,7 @@ class MainActivity : Activity() {
         shell.addView(heading)
         val scroll=ScrollView(this).apply{isFillViewport=true;setBackgroundColor(Color.rgb(250,252,251));clipToPadding=false}
         val display=TextView(this).apply{textSize=26f;gravity=android.view.Gravity.CENTER;setTextColor(Color.rgb(145,158,155));setPadding(20,190,20,250);setLineSpacing(20f,1.08f);text=lyricLines.joinToString("\n\n")}
-        scroll.addView(display,ScrollView.LayoutParams(-1,-2))
+        scroll.addView(display,android.widget.FrameLayout.LayoutParams(-1,-2))
         shell.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
         val controls=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
         controls.addView(button("Stop following"){stopFollowing();toast("Lyric following paused.")},LinearLayout.LayoutParams(0,-2,1f))
