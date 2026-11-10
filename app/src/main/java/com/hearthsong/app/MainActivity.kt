@@ -102,6 +102,7 @@ class MainActivity : Activity() {
     private var currentLineIndex = 0
     @Volatile private var recordingActive = false
     @Volatile private var recognitionEnabled = true
+    @Volatile private var modelLoading = false
     private var performanceAudio: AudioRecord? = null
     private var performanceThread: Thread? = null
     private var performanceRawFile: File? = null
@@ -143,7 +144,7 @@ class MainActivity : Activity() {
         pitchView=TextView(this).apply { text="Pitch monitor: waiting"; textSize=12f; setTextColor(Color.GRAY) }; editorPage.addView(pitchView)
         status=TextView(this).apply { textSize=12f; setTextColor(teal); setPadding(0,6,0,6) }; editorPage.addView(status)
         val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
-        recordButton=button("Start Performance"){ showLyrics(); startPerformance() }
+        recordButton=button("Start Performance"){ if(recordingActive)stopPerformance() else { showLyrics(); startPerformance() } }
         row.addView(recordButton,LinearLayout.LayoutParams(-1,-2))
         updateRecordButton(false)
         editorPage.addView(row)
@@ -566,7 +567,7 @@ class MainActivity : Activity() {
         }
     }
     private fun startPerformance(){
-        if(recordingActive)return
+        if(recordingActive || modelLoading)return
         if(lyricsBox.text.isBlank()){toast("Write or open a song before starting a performance.");return}
         if(popupLyricText==null)showLyrics()
         if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
@@ -577,6 +578,7 @@ class MainActivity : Activity() {
         popupStatus?.text="Preparing private, on-device lyric recognition. The first setup downloads a speech model once."
         status.text="Preparing on-device performance tools…"
         if(voskModel!=null){startPerformanceCapture();return}
+        modelLoading=true
         thread(name="JacksRePOModelSetup"){
             try{
                 val modelDir=File(filesDir,"vosk-model-small-en-us-0.15")
@@ -622,8 +624,10 @@ class MainActivity : Activity() {
                 }
                 val loaded=Model(modelDir.absolutePath)
                 voskModel=loaded
+                modelLoading=false
                 runOnUiThread{if(!isFinishing)startPerformanceCapture()}
             }catch(e:Exception){
+                modelLoading=false
                 runOnUiThread{
                     popupStatus?.text="Recording could not start because the offline speech model was unavailable. Check internet once, then try again."
                     status.text="Could not prepare offline lyric recognition: "+(e.message?:"unknown error")
@@ -649,7 +653,7 @@ class MainActivity : Activity() {
         val raw=File(cacheDir,"take_$stamp.pcm")
         val final=File(filesDir,"take_$stamp.wav")
         performanceRawFile=raw;performanceFinalFile=final
-        recordingActive=true;recognitionEnabled=true;recordingStartedAt=stamp
+        recordingActive=true;recognitionEnabled=true;lastRecognizedPhrase="";recordingStartedAt=stamp
         updateRecordButton(true)
         popupPerformanceButton?.text="■ Stop Performance"
         popupTimer?.text="REC  00:00"
