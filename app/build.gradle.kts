@@ -3,10 +3,6 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-dependencies {
-    implementation("net.java.dev.jna:jna:5.18.1@aar")
-    implementation("com.alphacephei:vosk-android:0.3.75@aar")
-}
 val releaseStorePath = System.getenv("HEARTHSONG_KEYSTORE_PATH")
 val releaseStorePassword = System.getenv("HEARTHSONG_KEYSTORE_PASSWORD")
 val releaseKeyAlias = System.getenv("HEARTHSONG_KEY_ALIAS")
@@ -46,4 +42,9 @@ android {
         versionCode = 4
         versionName = "0.4.0"
     }
+}
+
+dependencies {
+    implementation("net.java.dev.jna:jna:5.18.1@aar")
+    implementation("com.alphacephei:vosk-android:0.3.75@aar")
 }
