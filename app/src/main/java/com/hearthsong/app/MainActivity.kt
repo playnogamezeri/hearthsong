@@ -726,7 +726,7 @@ class MainActivity : Activity() {
             }catch(e:Exception){
                 raw.delete()
                 runOnUiThread{
-                    performanceAudio=null;performanceThread=null;recordingActive=false
+                    performanceAudio=null;performanceThread=null;recordingActive=false;performanceFinalizing=false
                     handler.removeCallbacks(timerTick);updateRecordButton(false)
                     popupPerformanceButton?.isEnabled=true;popupPerformanceButton?.text="▶ Start Performance"
                     popupStatus?.text="Recording stopped unexpectedly: "+(e.message?:"microphone error")
