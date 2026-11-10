@@ -26,6 +26,7 @@ import android.animation.ObjectAnimator
 import android.widget.*
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.WebChromeClient
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.concurrent.thread
@@ -194,16 +195,23 @@ class MainActivity : Activity() {
             settings.domStorageEnabled=true
             settings.mediaPlaybackRequiresUserGesture=true
             settings.loadsImagesAutomatically=true
+            settings.useWideViewPort=true
+            settings.loadWithOverviewMode=true
             settings.mixedContentMode=android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
             webViewClient=WebViewClient()
+            webChromeClient=WebChromeClient()
         }
         val html="""
             <!doctype html>
-            <html><head><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"></head>
+            <html>
+            <head>
+              <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+              <meta name="referrer" content="strict-origin-when-cross-origin">
+            </head>
             <body style="margin:0;background:#000;overflow:hidden">
               <iframe
                 width="100%" height="100%"
-                src="https://www.youtube.com/embed/$id?playsinline=1&autoplay=0&rel=0"
+                src="https://www.youtube.com/embed/$id?playsinline=1&autoplay=0&rel=0&enablejsapi=1&origin=https%3A%2F%2Fplaynogamezeri.github.io"
                 title="YouTube video player"
                 frameborder="0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -211,7 +219,7 @@ class MainActivity : Activity() {
                 allowfullscreen></iframe>
             </body></html>
         """.trimIndent()
-        web.loadDataWithBaseURL("https://www.youtube.com/",html,"text/html","UTF-8",null)
+        web.loadDataWithBaseURL("https://playnogamezeri.github.io/",html,"text/html","UTF-8",null)
         youtubeWebView=web
         return web
     }
