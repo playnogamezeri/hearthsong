@@ -147,7 +147,7 @@ class MainActivity : Activity() {
         row.addView(recordButton,LinearLayout.LayoutParams(-1,-2))
         updateRecordButton(false)
         editorPage.addView(row)
-        editorPage.addView(button("Back to writing"){ stopFollowing(); lyricScroll.visibility=View.GONE; lyricsBox.visibility=View.VISIBLE })
+        editorPage.addView(button("Back to writing"){ lyricScroll.visibility=View.GONE; lyricsBox.visibility=View.VISIBLE })
         libraryPage.addView(TextView(this).apply { text="MY SONGS & TAKES"; textSize=18f; setTextColor(teal); setPadding(0,12,0,8) })
         libraryPage.addView(button("Create backup file"){createBackupPicker()})
         libraryPage.addView(button("Restore from backup file"){restoreBackupPicker()})
@@ -157,7 +157,7 @@ class MainActivity : Activity() {
         listScroll.addView(library); libraryPage.addView(listScroll,LinearLayout.LayoutParams(-1,-2))
         setContentView(page)
         renderLibrary()
-        status.text=if(Build.VERSION.SDK_INT>=31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) "On-device speech recognition is available. No online fallback will be used." else "On-device speech recognition is unavailable. Jack's RePO will not send your voice online."
+        status.text="Offline lyric recognition uses a speech model stored on this phone. The first setup needs internet to download it."
     }
 
     private fun showPage(showLibrary:Boolean){
@@ -567,6 +567,7 @@ class MainActivity : Activity() {
     }
     private fun startPerformance(){
         if(recordingActive)return
+        if(lyricsBox.text.isBlank()){toast("Write or open a song before starting a performance.");return}
         if(popupLyricText==null)showLyrics()
         if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO),43)
@@ -814,5 +815,5 @@ class MainActivity : Activity() {
         if(grantResults.firstOrNull()==PackageManager.PERMISSION_GRANTED){if(requestCode==43)startPerformance()}
         else status.text="Microphone permission is needed for this feature."
     }
-    override fun onDestroy(){if(recordingActive)stopPerformance();stopPitchMonitor();player?.release();player=null;try{voskModel?.close()}catch(_:Exception){};super.onDestroy()}
+    override fun onDestroy(){if(recordingActive)stopPerformance();try{performanceThread?.join(1200)}catch(_:InterruptedException){};stopPitchMonitor();player?.release();player=null;try{voskModel?.close()}catch(_:Exception){};super.onDestroy()}
 }
