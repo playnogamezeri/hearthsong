@@ -31,7 +31,7 @@ jobs:
         run: |
           echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/hearthsong-release-key.jks"
       - name: Build permanently signed release APK
-        if: ${{ secrets.HEARTHSONG_KEYSTORE_BASE64 != '' }}
+        if: env.HAS_SIGNING_KEY == 'true'
         env:
           HEARTHSONG_KEYSTORE_PATH: ${{ runner.temp }}/hearthsong-release-key.jks
           HEARTHSONG_KEYSTORE_PASSWORD: ${{ secrets.HEARTHSONG_KEYSTORE_PASSWORD }}
@@ -42,14 +42,14 @@ jobs:
         if: env.HAS_SIGNING_KEY != 'true'
         run: gradle --no-daemon assembleDebug
       - name: Upload permanently signed APK
-        if: ${{ secrets.HEARTHSONG_KEYSTORE_BASE64 != '' }}
+        if: env.HAS_SIGNING_KEY == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: hearthsong-release-apk
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
       - name: Upload debug APK (not suitable for updates)
-        if: ${{ secrets.HEARTHSONG_KEYSTORE_BASE64 == '' }}
+        if: env.HAS_SIGNING_KEY != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: hearthsong-debug-apk
