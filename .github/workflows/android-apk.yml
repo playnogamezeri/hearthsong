@@ -33,7 +33,7 @@ jobs:
       - name: Build permanently signed release APK
         if: env.HAS_SIGNING_KEY == 'true'
         env:
-          HEARTHSONG_KEYSTORE_PATH: ${{ runner.temp }}/hearthsong-release-key.jks
+          HEARTHSONG_KEYSTORE_PATH: ${{ runner.temp }}/jacks-repo-release-key.jks
           HEARTHSONG_KEYSTORE_PASSWORD: ${{ secrets.HEARTHSONG_KEYSTORE_PASSWORD }}
           HEARTHSONG_KEY_ALIAS: ${{ secrets.HEARTHSONG_KEY_ALIAS }}
           HEARTHSONG_KEY_PASSWORD: ${{ secrets.HEARTHSONG_KEY_PASSWORD }}
