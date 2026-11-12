@@ -57,3 +57,11 @@ When Start Performance is pressed, the lyric screen begins a gentle, steady down
 - Reverb is a lightweight multi-tap delay, not convolution reverb. Compression and EQ are simple first-pass DSP, not studio-grade mastering.
 - The original recording is kept unchanged; each processed result is saved as a new WAV copy. Processing is on-device.
 - These effects are experimental and need listening tests on the target phone and different voice/guitar recordings. A successful GitHub build only verifies compilation and packaging.
+
+
+## Automatic emotional presets (0.5.7)
+
+- Emotional presets use fixed, predefined settings for pitch correction, bass/treble EQ, reverb, compression, and formant-style resonant coloration. Users select an emotion; they do not need to adjust audio-effect sliders.
+- Available styles: Natural, Cheerful, Romantic, Sad, Dark / Depressive, Sultry, Angry, Confident, Dreamy, Heartbroken, Dramatic, and Robotic.
+- Key and scale remain selectable because pitch correction needs the song's musical key and note family. These are separate from the emotional tone controls.
+- Each generated copy is named for its emotional style. The original take remains unchanged.
