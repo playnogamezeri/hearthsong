@@ -159,8 +159,10 @@ class MainActivity : Activity() {
         libraryPage.addView(button("Restore from backup file"){restoreBackupPicker()})
         libraryPage.addView(TextView(this).apply{text="Backups include your saved lyrics and audio recordings. Keep the backup somewhere safe.";textSize=12f;setTextColor(Color.GRAY);setPadding(4,2,4,10)})
         library=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
-        val listScroll=ScrollView(this).apply { isNestedScrollingEnabled=true; isVerticalScrollBarEnabled=true }
-        listScroll.addView(library); libraryPage.addView(listScroll,LinearLayout.LayoutParams(-1,-2))
+        // Use the screen's single outer ScrollView for the entire library.
+        // A second, wrap-content ScrollView here can expand beyond the viewport
+        // and create competing scroll containers when many recordings are saved.
+        libraryPage.addView(library,LinearLayout.LayoutParams(-1,-2))
         setContentView(page)
         renderLibrary()
         status.text="Offline lyric recognition uses a speech model stored on this phone. The first setup needs internet to download it."
@@ -898,78 +900,3 @@ class MainActivity : Activity() {
         var best=-1;var bestScore=0
         for(index in first..last){
             val words=lyricLines[index].lowercase().replace(Regex("[^\\p{L}\\p{N} ]")," ").split(Regex("\\s+")).filter{it.isNotBlank()}
-            if(words.isEmpty())continue
-            val score=tokens.count{token->words.any{word->word==token || (token.length>=4 && word.startsWith(token)) || (word.length>=4 && token.startsWith(word))}}
-            val required=if(words.size<=3)1 else 2
-            val adjusted=score*100-(index-currentLineIndex)*8
-            if(score>=required && adjusted>bestScore){bestScore=adjusted;best=index}
-        }
-        // Lyric movement is now time-based auto-scroll; speech recognition no longer
-        // controls highlighting or scroll position, so singing freely won't fight the screen.
-    }
-
-    private var lastRecognizedPhrase=""
-
-    private fun stopPerformance(){
-        if(!recordingActive)return
-        recordingActive=false
-        handler.removeCallbacks(lyricAutoScrollTick)
-        performanceFinalizing=true
-        recognitionEnabled=false
-        try{performanceAudio?.stop()}catch(_:Exception){}
-        popupStatus?.text="Finishing and saving your performance…"
-        status.text="Finishing performance recording…"
-        handler.removeCallbacks(timerTick)
-        updateRecordButton(false)
-        popupPerformanceButton?.text="▶ Start Performance"
-    }
-
-    private fun startPitchMonitor(){
-        if(pitchRunning)return
-        val rate=16000
-        val size=AudioRecord.getMinBufferSize(rate,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT)
-        if(size<=0){pitchView.text="Pitch monitor unavailable";return}
-        try{
-            audioRecord=AudioRecord(MediaRecorder.AudioSource.MIC,rate,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT,maxOf(size,4096))
-            audioRecord?.startRecording();pitchRunning=true
-            thread(name="HearthsongPitch"){
-                val data=ShortArray(4096)
-                while(pitchRunning){
-                    val n=audioRecord?.read(data,0,data.size)?:0
-                    if(n>1024){
-                        val hz=estimatePitch(data,n,rate)
-                        if(hz>0){
-                            val midi=(69+12*(ln(hz/440.0)/ln(2.0))).toInt()
-                            val names=arrayOf("C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B")
-                            val note=names[((midi%12)+12)%12]+(midi/12-1)
-                            runOnUiThread{pitchView.text="Approx. pitch: "+note+" · "+hz.toInt()+" Hz"}
-                        }
-                    }
-                }
-            }
-        }catch(_:Exception){pitchView.text="Pitch monitor unavailable"}
-    }
-
-    private fun estimatePitch(data:ShortArray,count:Int,sampleRate:Int):Double{
-        val minLag=sampleRate/800;val maxLag=minOf(sampleRate/70,count/2)
-        var bestLag=0;var best=0.0
-        for(lag in minLag..maxLag step 2){
-            var sum=0.0
-            for(i in 0 until minOf(count-lag,1800))sum+=data[i].toDouble()*data[i+lag].toDouble()
-            if(sum>best){best=sum;bestLag=lag}
-        }
-        return if(bestLag>0)sampleRate.toDouble()/bestLag else 0.0
-    }
-    private fun stopPitchMonitor(){
-        pitchRunning=false
-        try{audioRecord?.stop();audioRecord?.release()}catch(_:Exception){}
-        audioRecord=null;pitchView.text="Pitch monitor stopped"
-    }
-
-    override fun onRequestPermissionsResult(requestCode:Int,permissions:Array<out String>,grantResults:IntArray){
-        super.onRequestPermissionsResult(requestCode,permissions,grantResults)
-        if(grantResults.firstOrNull()==PackageManager.PERMISSION_GRANTED){if(requestCode==43)startPerformance()}
-        else status.text="Microphone permission is needed for this feature."
-    }
-    override fun onDestroy(){if(recordingActive)stopPerformance();try{performanceThread?.join(1200)}catch(_:InterruptedException){};stopPitchMonitor();player?.release();player=null;try{voskModel?.close()}catch(_:Exception){};super.onDestroy()}
-}
