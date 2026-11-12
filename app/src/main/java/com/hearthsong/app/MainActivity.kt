@@ -901,7 +901,7 @@ class MainActivity : Activity() {
                 runOnUiThread{
                     performanceAudio=null;performanceThread=null;recordingActive=false;performanceFinalizing=false
                     handler.removeCallbacks(timerTick);updateRecordButton(false)
-                    popupPerformanceButton?.isEnabled=true;popupPerformanceButton?.text="▶ Start Performance"
+                    popupPerformanceButton?.isEnabled=true;popupPerformanceButton?.text=popupRecordingLabel
                     popupStatus?.text="Recording stopped unexpectedly: "+(e.message?:"microphone error")
                     status.text="Performance recording failed."
                 }
@@ -969,7 +969,7 @@ class MainActivity : Activity() {
         status.text="Finishing performance recording…"
         handler.removeCallbacks(timerTick)
         updateRecordButton(false)
-        popupPerformanceButton?.text="▶ Start Performance"
+        popupPerformanceButton?.text=popupRecordingLabel
     }
 
     private fun startPitchMonitor(){
