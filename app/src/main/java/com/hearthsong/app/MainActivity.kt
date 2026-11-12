@@ -1019,5 +1019,10 @@ class MainActivity : Activity() {
         if(grantResults.firstOrNull()==PackageManager.PERMISSION_GRANTED){if(requestCode==43)startPerformance()}
         else status.text="Microphone permission is needed for this feature."
     }
+    override fun onResume(){
+        super.onResume()
+        if(::homeDateView.isInitialized)homeDateView.text=currentDateLabel()
+    }
+
     override fun onDestroy(){if(recordingActive)stopPerformance();try{performanceThread?.join(1200)}catch(_:InterruptedException){};stopPitchMonitor();player?.release();player=null;try{voskModel?.close()}catch(_:Exception){};super.onDestroy()}
 }
