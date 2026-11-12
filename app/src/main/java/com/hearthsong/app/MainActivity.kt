@@ -30,9 +30,6 @@ import android.text.style.BackgroundColorSpan
 import android.view.View
 import android.animation.ObjectAnimator
 import android.widget.*
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import android.webkit.WebChromeClient
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.concurrent.thread
@@ -48,7 +45,6 @@ class MainActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var titleBox: EditText
     private lateinit var lyricsBox: EditText
-    private lateinit var youtubeLinkBox: EditText
     private lateinit var lyricView: TextView
     private lateinit var lyricScroll: ScrollView
     private lateinit var status: TextView
@@ -65,7 +61,6 @@ class MainActivity : Activity() {
     private var popupPlaybackTime: TextView? = null
     private var popupPlaybackButton: Button? = null
     private var popupTakeSpinner: Spinner? = null
-    private var youtubeWebView: WebView? = null
     private val playbackTick = object : Runnable {
         override fun run() {
             val p=player
@@ -132,12 +127,8 @@ class MainActivity : Activity() {
         editorPage.addView(lyricsBox,LinearLayout.LayoutParams(-1,220))
         lyricsBox.isVerticalScrollBarEnabled=true
         lyricsBox.setPadding(12,12,12,12)
-        youtubeLinkBox=EditText(this).apply{hint="Optional YouTube backing-track link";setSingleLine(true);inputType=android.text.InputType.TYPE_TEXT_VARIATION_URI}
-        editorPage.addView(youtubeLinkBox)
-        editorPage.addView(button("Play YouTube in app"){openYouTubeLink()})
-        editorPage.addView(TextView(this).apply{text="Tip: use headphones so the YouTube music does not leak into your microphone recording.";textSize=12f;setTextColor(Color.GRAY);setPadding(2,2,2,8)})
         editorPage.addView(button("Save song"){ saveSong(); toast("Saved on this phone.") })
-        editorPage.addView(button("New song"){editingSongTitle=null;titleBox.setText("");lyricsBox.setText("");youtubeLinkBox.setText("");titleBox.requestFocus();toast("Ready for a new song.")})
+        editorPage.addView(button("New song"){editingSongTitle=null;titleBox.setText("");lyricsBox.setText("");titleBox.requestFocus();toast("Ready for a new song.")})
         editorPage.addView(button("Open lyric-following screen"){ showLyrics() })
         lyricScroll=ScrollView(this).apply { visibility=View.GONE; setBackgroundColor(Color.rgb(248,252,251)) }
         lyricView=TextView(this).apply { textSize=27f; setTextColor(Color.rgb(20,35,33)); gravity=android.view.Gravity.CENTER; setPadding(14,28,14,300); setLineSpacing(12f,1f) }
@@ -153,7 +144,7 @@ class MainActivity : Activity() {
         libraryPage.addView(TextView(this).apply { text="MY SONGS & TAKES"; textSize=18f; setTextColor(teal); setPadding(0,12,0,8) })
         libraryPage.addView(button("Create backup file"){createBackupPicker()})
         libraryPage.addView(button("Restore from backup file"){restoreBackupPicker()})
-        libraryPage.addView(TextView(this).apply{text="Backups include your saved lyrics, YouTube links and audio recordings. Keep the backup somewhere safe.";textSize=12f;setTextColor(Color.GRAY);setPadding(4,2,4,10)})
+        libraryPage.addView(TextView(this).apply{text="Backups include your saved lyrics and audio recordings. Keep the backup somewhere safe.";textSize=12f;setTextColor(Color.GRAY);setPadding(4,2,4,10)})
         library=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
         val listScroll=ScrollView(this).apply { isNestedScrollingEnabled=true; isVerticalScrollBarEnabled=true }
         listScroll.addView(library); libraryPage.addView(listScroll,LinearLayout.LayoutParams(-1,-2))
@@ -180,85 +171,9 @@ class MainActivity : Activity() {
         recordButton.isActivated=isRecording
     }
 
-    private fun youtubeVideoId(raw:String):String? {
-        return try {
-            val uri=android.net.Uri.parse(if(raw.startsWith("https://")||raw.startsWith("http://"))raw else "https://"+raw)
-            val host=uri.host?.lowercase()?.removePrefix("www.")
-            if(host=="youtu.be") uri.lastPathSegment?.takeIf{it.matches(Regex("[A-Za-z0-9_-]{11}"))}
-            else if(host in setOf("youtube.com","m.youtube.com","music.youtube.com")) {
-                val id=uri.getQueryParameter("v") ?: uri.pathSegments.let { parts ->
-                    val marker=parts.indexOfFirst{it in setOf("embed","shorts","live","v")}
-                    if(marker>=0) parts.getOrNull(marker+1) else null
-                }
-                id?.takeIf{it.matches(Regex("[A-Za-z0-9_-]{11}"))}
-            } else null
-        } catch(_:Exception) { null }
-    }
-
-    private fun createYouTubeWebView(raw:String):WebView? {
-        val id=youtubeVideoId(raw) ?: return null
-        val web=WebView(this).apply {
-            setBackgroundColor(Color.BLACK)
-            settings.javaScriptEnabled=true
-            settings.domStorageEnabled=true
-            settings.mediaPlaybackRequiresUserGesture=true
-            settings.loadsImagesAutomatically=true
-            settings.useWideViewPort=true
-            settings.loadWithOverviewMode=true
-            settings.mixedContentMode=android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
-            webViewClient=WebViewClient()
-            webChromeClient=WebChromeClient()
-        }
-        val html="""
-            <!doctype html>
-            <html>
-            <head>
-              <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-              <meta name="referrer" content="strict-origin-when-cross-origin">
-            </head>
-            <body style="margin:0;background:#000;overflow:hidden">
-              <iframe
-                width="100%" height="100%"
-                src="https://www.youtube.com/embed/$id?playsinline=1&autoplay=0&rel=0&enablejsapi=1&origin=https%3A%2F%2Fplaynogamezeri.github.io"
-                title="YouTube video player"
-                frameborder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                referrerpolicy="strict-origin-when-cross-origin"
-                allowfullscreen></iframe>
-            </body></html>
-        """.trimIndent()
-        web.loadDataWithBaseURL("https://playnogamezeri.github.io/",html,"text/html","UTF-8",null)
-        youtubeWebView=web
-        return web
-    }
-
-    private fun destroyYouTubeWebView() {
-        try { youtubeWebView?.stopLoading(); youtubeWebView?.loadUrl("about:blank"); youtubeWebView?.destroy() } catch(_:Exception) {}
-        youtubeWebView=null
-    }
-
-    private fun openYouTubeLink(){
-        if(!::youtubeLinkBox.isInitialized){toast("Enter a YouTube link in the song editor first.");return}
-        val raw=youtubeLinkBox.text.toString().trim()
-        if(raw.isBlank()){toast("Paste a YouTube video link in the song editor first.");return}
-        if(youtubeVideoId(raw)==null){toast("Please enter a valid YouTube video link.");return}
-        val dialog=Dialog(this)
-        val panel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(Color.WHITE);setPadding(12,12,12,12)}
-        panel.addView(TextView(this).apply{text="YouTube · Jack's RePO";textSize=18f;setTextColor(teal);setPadding(4,6,4,10)})
-        val web=createYouTubeWebView(raw) ?: return
-        panel.addView(web,LinearLayout.LayoutParams(-1,dp(230)))
-        panel.addView(button("Close player"){dialog.dismiss()})
-        dialog.setContentView(panel)
-        dialog.show()
-        dialog.window?.setLayout(-1,-2)
-        dialog.setOnDismissListener{destroyYouTubeWebView()}
-    }
-
-    private fun dp(value:Int):Int=(value*resources.displayMetrics.density).toInt()
-
     private fun saveSong() {
         val title=titleBox.text.toString().trim().ifBlank{"Untitled song"}
-        val all=JSONArray(prefs.getString("songs","[]")); val item=JSONObject().put("title",title).put("lyrics",lyricsBox.text.toString()).put("youtubeUrl",if(::youtubeLinkBox.isInitialized)youtubeLinkBox.text.toString() else "")
+        val all=JSONArray(prefs.getString("songs","[]")); val item=JSONObject().put("title",title).put("lyrics",lyricsBox.text.toString())
         var found=false
         for(i in 0 until all.length()) if(all.getJSONObject(i).optString("title")==editingSongTitle || all.getJSONObject(i).optString("title")==title){all.put(i,item);found=true;break}
         if(!found) all.put(item)
@@ -274,7 +189,7 @@ class MainActivity : Activity() {
             val song=songs.getJSONObject(i)
             val songTitle=song.optString("title")
             val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
-            row.addView(button("Edit: "+songTitle){titleBox.setText(songTitle);lyricsBox.setText(song.optString("lyrics"));youtubeLinkBox.setText(song.optString("youtubeUrl"));editingSongTitle=songTitle;showPage(false);toast("Edit your lyrics, then tap Save song.")},LinearLayout.LayoutParams(0,-2,2f))
+            row.addView(button("Edit: "+songTitle){titleBox.setText(songTitle);lyricsBox.setText(song.optString("lyrics"));editingSongTitle=songTitle;showPage(false);toast("Edit your lyrics, then tap Save song.")},LinearLayout.LayoutParams(0,-2,2f))
             row.addView(button("Delete"){AlertDialog.Builder(this@MainActivity).setTitle("Delete song?").setMessage("Delete this song and its lyrics?").setNegativeButton("Cancel",null).setPositiveButton("Delete"){_,_->deleteSong(songTitle)}.show()},LinearLayout.LayoutParams(0,-2,1f))
             library.addView(row)
         }
@@ -550,12 +465,6 @@ class MainActivity : Activity() {
         val shell=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(Color.rgb(250,252,251));setPadding(20,18,20,18)}
         val heading=TextView(this).apply{text=titleBox.text.toString().ifBlank{"Your song"};textSize=22f;setTypeface(null,Typeface.BOLD);setTextColor(Color.rgb(25,55,52));setPadding(4,10,4,14)}
         shell.addView(heading)
-        val backingUrl=youtubeLinkBox.text.toString().trim()
-        if(backingUrl.isNotBlank()) {
-            val video=createYouTubeWebView(backingUrl)
-            if(video!=null) shell.addView(video,LinearLayout.LayoutParams(-1,dp(210)))
-            else shell.addView(TextView(this).apply{text="The saved YouTube link is not a supported video URL.";textSize=12f;setTextColor(Color.GRAY)})
-        }
         val scroll=ScrollView(this).apply{isFillViewport=true;setBackgroundColor(Color.rgb(250,252,251));clipToPadding=false}
         val display=TextView(this).apply{textSize=26f;gravity=android.view.Gravity.CENTER;setTextColor(Color.rgb(145,158,155));setPadding(20,190,20,250);setLineSpacing(20f,1.08f);text=lyricLines.joinToString("\n\n")}
         scroll.addView(display,android.widget.FrameLayout.LayoutParams(-1,-2))
@@ -609,7 +518,7 @@ class MainActivity : Activity() {
         popupLyricText=display
         popupStatus=liveStatus
         popupTimer=liveTimer
-        dialog.setOnDismissListener{if(recordingActive)stopPerformance();destroyYouTubeWebView();popupLyricScroll=null;popupLyricText=null;popupStatus=null;popupTimer=null;popupPerformanceButton=null;popupPlaybackSeek=null;popupPlaybackTime=null;popupPlaybackButton=null;popupTakeSpinner=null}
+        dialog.setOnDismissListener{if(recordingActive)stopPerformance();popupLyricScroll=null;popupLyricText=null;popupStatus=null;popupTimer=null;popupPerformanceButton=null;popupPlaybackSeek=null;popupPlaybackTime=null;popupPlaybackButton=null;popupTakeSpinner=null}
         renderActiveLyricLine(false)
     }
 
