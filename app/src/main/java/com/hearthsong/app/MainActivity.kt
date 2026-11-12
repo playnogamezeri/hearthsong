@@ -307,13 +307,13 @@ class MainActivity : Activity() {
             setBackgroundColor(Color.WHITE)
         }
         panel.addView(TextView(this).apply {
-            text = "♫ Emotion Vocal Studio"
+            text = "♫ Auto-Tune Engine 3.0"
             textSize = 22f
             setTextColor(teal)
             setTypeface(null, Typeface.BOLD)
         })
         panel.addView(TextView(this).apply {
-            text = "Choose how you want your performance to feel. Jack's RePO will automatically estimate the song's notes, apply gentle pitch correction, and shape the sound to match your chosen emotion."
+            text = "Choose your finish and emotion. Engine 3.0 analyzes the pitch, avoids uncertain notes, smooths correction, and builds a new version without changing your original recording."
             textSize = 14f
             setTextColor(Color.DKGRAY)
             setPadding(0, 8, 0, 14)
@@ -325,6 +325,20 @@ class MainActivity : Activity() {
             setTypeface(null, Typeface.BOLD)
             setPadding(0, 4, 0, 6)
         })
+
+        panel.addView(TextView(this).apply {
+            text = "CHOOSE YOUR SOUND"
+            textSize = 12f
+            setTextColor(teal)
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 4, 0, 6)
+        })
+        val finishes = listOf("Natural & Expressive", "Polished Pop / Hip-Hop")
+        val finishMode = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, finishes)
+            setSelection(0)
+        }
+        panel.addView(finishMode)
 
         val styles = listOf("Natural", "Cheerful", "Romantic", "Sad", "Dark / Depressive", "Sultry", "Angry", "Confident", "Dreamy", "Heartbroken", "Dramatic", "Robotic")
         val descriptions = listOf(
@@ -400,16 +414,18 @@ class MainActivity : Activity() {
                     intArrayOf(50,58,8,35,45,100)
                 )
                 val v = configs[selectedStyle]
-                val amount = v[5] / 100.0
+                val finish = if (finishMode.selectedItemPosition == 1) VocalPitchEngine.Finish.POLISHED else VocalPitchEngine.Finish.NATURAL
+                val baseAmount = v[5] / 100.0
+                val amount = if (finish == VocalPitchEngine.Finish.POLISHED && selectedStyle != 11) maxOf(baseAmount, 0.78) else baseAmount
                 val tone = AutoTuneProcessor.ToneSettings(
                     bassDb = (v[0] - 50) * 0.12,
                     trebleDb = (v[1] - 50) * 0.12,
-                    reverb = v[2].toDouble(),
-                    compression = v[3].toDouble(),
+                    reverb = if (finish == VocalPitchEngine.Finish.POLISHED) v[2] * 0.88 else v[2].toDouble(),
+                    compression = if (finish == VocalPitchEngine.Finish.POLISHED) (v[3] + 18).coerceAtMost(72).toDouble() else v[3].toDouble(),
                     formantColor = v[4].toDouble(),
-                    presenceDb = when(selectedStyle) { 1,6,7,10 -> 2.5; 2,5 -> 1.2; 3,4,9 -> -1.0; else -> 0.0 },
-                    deEss = when(selectedStyle) { 1,6,10 -> 0.45; 2,5,7 -> 0.65; else -> 0.35 },
-                    saturation = when(selectedStyle) { 4,6,11 -> 0.18; 7,10 -> 0.10; else -> 0.04 }
+                    presenceDb = (when(selectedStyle) { 1,6,7,10 -> 2.5; 2,5 -> 1.2; 3,4,9 -> -1.0; else -> 0.0 } + if (finish == VocalPitchEngine.Finish.POLISHED) 1.0 else 0.0),
+                    deEss = (when(selectedStyle) { 1,6,10 -> 0.45; 2,5,7 -> 0.65; else -> 0.35 } + if (finish == VocalPitchEngine.Finish.POLISHED) 0.10 else 0.0).coerceAtMost(1.0),
+                    saturation = (when(selectedStyle) { 4,6,11 -> 0.18; 7,10 -> 0.10; else -> 0.04 } + if (finish == VocalPitchEngine.Finish.POLISHED) 0.05 else 0.0).coerceAtMost(0.35)
                 )
 
                 style.isEnabled = false
@@ -429,12 +445,13 @@ class MainActivity : Activity() {
                             output = File(filesDir, source.nameWithoutExtension + "_" + styleName.lowercase().replace(Regex("[^a-z0-9]+"), "_") + "_" + suffix + ".wav")
                             suffix++
                         }
-                        val corrected = AutoTuneProcessor.process(source, output, estimate.key, effectiveScale, amount, tone, 0)
+                        val corrected = AutoTuneProcessor.process(source, output, estimate.key, effectiveScale, amount, tone, 0, finish)
                         runOnUiThread {
                             if (!isFinishing) {
                                 dialog.dismiss()
                                 renderLibrary()
-                                toast(if (corrected > 0) "$styleName version saved · pitch correction applied." else "$styleName version saved.")
+                                val finishLabel = if (finish == VocalPitchEngine.Finish.POLISHED) "Polished" else "Natural"
+                                toast(if (corrected > 0) "$finishLabel $styleName version saved · pitch correction applied." else "$finishLabel $styleName version saved.")
                             }
                         }
                     } catch (e: Exception) {
