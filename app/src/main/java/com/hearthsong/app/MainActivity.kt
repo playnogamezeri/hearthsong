@@ -236,8 +236,15 @@ class MainActivity : Activity() {
         panel.addView(TextView(this).apply{text="Choose a ready-made sound, then adjust how strongly the recording is corrected.";textSize=13f;setTextColor(Color.DKGRAY);setPadding(0,6,0,10)})
         fun addLabel(value:String){panel.addView(TextView(this).apply{text=value;textSize=13f;setTextColor(Color.DKGRAY);setPadding(0,8,0,2)})}
         addLabel("PRELOADED STYLE")
-        val styles=listOf("Natural","Strong","Robotic / T-Pain")
-        val style=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,styles);setSelection(0)}
+        val styles=listOf(
+            "Natural",
+            "Strong",
+            "Robotic / T-Pain",
+            "Powerful Rap · Firm tuning",
+            "Dream Pop · Soft tuning",
+            "Melodic Hip-Hop · Bright tuning"
+        )
+        val style=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,styles);setSelection(3)}
         panel.addView(style)
         addLabel("KEY")
         val keys=listOf("C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B")
@@ -248,10 +255,10 @@ class MainActivity : Activity() {
         val scale=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,scales);setSelection(0)}
         panel.addView(scale)
         addLabel("CORRECTION STRENGTH")
-        val strength=SeekBar(this).apply{max=100;progress=45}
-        val strengthLabel=TextView(this).apply{text="45% · Natural";textSize=13f;setTextColor(teal)}
+        val strength=SeekBar(this).apply{max=100;progress=90}
+        val strengthLabel=TextView(this).apply{text="90% · Powerful Rap";textSize=13f;setTextColor(teal)}
         panel.addView(strength);panel.addView(strengthLabel)
-        fun preset(){val p=when(style.selectedItemPosition){0->45;1->78;else->100};strength.progress=p}
+        fun preset(){val p=when(style.selectedItemPosition){0->45;1->78;2->100;3->90;4->35;else->78};strength.progress=p}
         style.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{
             override fun onNothingSelected(parent:AdapterView<*>?){}
             override fun onItemSelected(parent:AdapterView<*>?,view:View?,position:Int,id:Long){preset()}
@@ -261,7 +268,7 @@ class MainActivity : Activity() {
             override fun onStartTrackingTouch(seekBar:SeekBar?){}
             override fun onStopTrackingTouch(seekBar:SeekBar?){}
         })
-        panel.addView(TextView(this).apply{text="This experimental effect processes the complete recording. Guitar notes and chords may change too. Your original stays untouched.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,10,0,8)})
+        panel.addView(TextView(this).apply{text="These presets adjust pitch-correction strength only; they do not change vocal tone, EQ, reverb, or make a voice sound like a particular race or age. Choose the song's actual key and scale below. This experimental effect processes the complete recording, so guitar notes and chords may change too. Your original stays untouched.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,10,0,8)})
         val dialog=AlertDialog.Builder(this).setView(panel).setNegativeButton("Cancel",null).setPositiveButton("Create tuned copy",null).create()
         dialog.setOnShowListener{
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
