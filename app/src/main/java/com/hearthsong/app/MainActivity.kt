@@ -285,98 +285,92 @@ class MainActivity : Activity() {
             toast("Auto-Tune currently works with WAV recordings. Make a new performance recording first.")
             return
         }
-        val panel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(20,12,20,8);setBackgroundColor(Color.WHITE)}
-        panel.addView(TextView(this).apply{text="♫ Emotional Vocal Studio";textSize=22f;setTextColor(teal);setTypeface(null,Typeface.BOLD)})
-        panel.addView(TextView(this).apply{text="Choose the emotion. The app automatically sets pitch correction, EQ, reverb, compression, and vocal-color effects for that mood. No manual audio tweaking needed.";textSize=13f;setTextColor(Color.DKGRAY);setPadding(0,6,0,10)})
-        fun addLabel(value:String){panel.addView(TextView(this).apply{text=value;textSize=13f;setTextColor(Color.DKGRAY);setPadding(0,8,0,2)})}
-        addLabel("CHOOSE AN EMOTIONAL STYLE")
-        val styles=listOf("Natural","Cheerful","Romantic","Sad","Dark / Depressive","Sultry","Angry","Confident","Dreamy","Heartbroken","Dramatic","Robotic")
-        val style=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,styles);setSelection(0)}
-        panel.addView(style)
-        addLabel("HOW SHOULD THE APP HANDLE THE KEY?")
-        val modes=listOf("Match My Recording","Change to a Different Key")
-        val mode=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,modes);setSelection(0)}
-        panel.addView(mode)
-        var detected: AutoTuneProcessor.KeyEstimate? = null
-        val detectionStatus=TextView(this).apply{text="Key not analyzed yet.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,6,0,4)}
 
-        addLabel("KEY · SONG'S HOME NOTE")
-        panel.addView(TextView(this).apply{text="ELI5: Pick the musical home note of your song. If you don't know it, leave C as a starting point, but the correction may sound less natural if C isn't the real key.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,2,0,6)})
-        val keys=listOf("C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B")
-        val key=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,keys);setSelection(0)}
-        panel.addView(key)
-        val keyHelp=TextView(this).apply{text="Match mode fills this with the estimated original key. Change mode treats this as the destination key.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,2,0,6)}
-        panel.addView(keyHelp)
-        addLabel("SCALE · NOTES THAT FIT THE SONG")
-        panel.addView(TextView(this).apply{text="ELI5: Major often feels brighter; Minor often feels moodier; Chromatic allows all 12 notes. Choose the scale that matches your song.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,2,0,6)})
-        val scales=listOf("Major","Minor","Chromatic")
-        val scale=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,scales);setSelection(0)}
-        panel.addView(scale)
-        mode.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{
-            override fun onNothingSelected(parent:AdapterView<*>?){}
-            override fun onItemSelected(parent:AdapterView<*>?,view:View?,position:Int,id:Long){
-                keyHelp.text=if(position==0)"Match mode uses the estimated original key and scale." else "Choose the destination key. The app estimates the original key and keeps its major/minor mode."
-                detected?.let{if(position==0){key.setSelection(it.key);scale.setSelection(it.scale)}}
-            }
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(20, 16, 20, 12)
+            setBackgroundColor(Color.WHITE)
         }
-        panel.addView(button("Analyze my recording"){
-            detectionStatus.text="Analyzing the recording…"
-            thread(name="JacksREPOKeyAnalysis"){
-                try{
-                    val result=AutoTuneProcessor.detectKey(source)
-                    detected=result
-                    runOnUiThread{
-                        val confidence=when{result.confidence>=0.20->"stronger";result.confidence>=0.08->"moderate";else->"low"}
-                        detectionStatus.text="Estimate: ${keys[result.key]} ${if(result.scale==0)"Major" else "Minor"} · $confidence confidence. Please listen and check it."
-                        if(mode.selectedItemPosition==0){key.setSelection(result.key);scale.setSelection(result.scale)}
-                    }
-                }catch(e:Exception){runOnUiThread{detectionStatus.text="Could not estimate the key: ${e.message?: "try a clearer recording"}"}}
-            }
+        panel.addView(TextView(this).apply {
+            text = "♫ Emotion Vocal Studio"
+            textSize = 22f
+            setTextColor(teal)
+            setTypeface(null, Typeface.BOLD)
         })
-        panel.addView(detectionStatus)
-        val descriptions=listOf(
-            "Balanced tone with gentle pitch correction.",
-            "Bright top end, a little warmth, light room reverb, and lively dynamics.",
-            "Warm low end, smooth brightness, richer space, and gentle leveling.",
-            "Softer, darker tone with restrained space and gentle leveling.",
-            "Deep, subdued tone with restrained brightness, tighter dynamics, and subtle resonance.",
-            "Warm, smooth tone with extra space and softened dynamics.",
-            "More presence and edge, tight dynamics, and stronger resonance.",
-            "Clear, forward tone with controlled low end and firm dynamics.",
-            "Softened brightness with spacious reverb and gentle dynamics.",
-            "Muted warmth, a more spacious tail, and expressive resonance.",
-            "Pronounced presence, stronger leveling, and more resonant color.",
-            "Maximum pitch correction with a clean, focused, synthetic tone."
+        panel.addView(TextView(this).apply {
+            text = "Choose how you want your performance to feel. Jack's RePO will automatically estimate the song's notes, apply gentle pitch correction, and shape the sound to match your chosen emotion."
+            textSize = 14f
+            setTextColor(Color.DKGRAY)
+            setPadding(0, 8, 0, 14)
+        })
+        panel.addView(TextView(this).apply {
+            text = "CHOOSE YOUR VOCAL STYLE"
+            textSize = 12f
+            setTextColor(teal)
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 4, 0, 6)
+        })
+
+        val styles = listOf("Natural", "Cheerful", "Romantic", "Sad", "Dark / Depressive", "Sultry", "Angry", "Confident", "Dreamy", "Heartbroken", "Dramatic", "Robotic")
+        val descriptions = listOf(
+            "A balanced, natural sound with gentle pitch correction.",
+            "A brighter, lively sound with extra sparkle.",
+            "A warm, smooth sound with a soft, spacious finish.",
+            "A softer, darker sound with restrained effects.",
+            "A deep, subdued sound with a darker tone.",
+            "A warm, smooth and intimate sound.",
+            "A stronger, edgier sound with more presence.",
+            "A clear, forward sound with firm dynamics.",
+            "A soft, airy and spacious sound.",
+            "A warm, emotional sound with a longer tail.",
+            "A bold, expressive sound with stronger presence.",
+            "A clean, synthetic sound with stronger pitch correction."
         )
-        val explanation=TextView(this).apply{text=descriptions[0];textSize=12f;setTextColor(teal);setPadding(0,8,0,8)}
-        panel.addView(explanation)
-        style.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{
-            override fun onNothingSelected(parent:AdapterView<*>?){}
-            override fun onItemSelected(parent:AdapterView<*>?,view:View?,position:Int,id:Long){explanation.text=descriptions[position]}
+        val style = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, styles)
+            setSelection(0)
         }
-        panel.addView(TextView(this).apply{text="Key detection listens to the complete voice-and-guitar mix, so chords and noise can affect its estimate. Key changes now use waveform-aligned time stretching to preserve the recording duration and tempo while shifting pitch; dense chords and large shifts may still create artifacts. Effects also process the full mix. Your original recording is never overwritten.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,10,0,8)})
-        val dialog=AlertDialog.Builder(this).setView(panel).setNegativeButton("Cancel",null).setPositiveButton("Create emotional copy",null).create()
-        dialog.setOnShowListener{
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
-                dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled=false
-                dialog.getButton(AlertDialog.BUTTON_POSITIVE).text="Processing…"
-                val selectedKey=key.selectedItemPosition
-                val selectedScale=scale.selectedItemPosition
-                val selectedMode=mode.selectedItemPosition
-                val keyEstimate=detected
-                if(keyEstimate==null){
-                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled=true
-                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).text="Create emotional copy"
-                    toast("Tap Analyze my recording first.")
-                    return@setOnClickListener
-                }
-                val originalKey=keyEstimate.key
-                val destinationKey=if(selectedMode==0)originalKey else selectedKey
-                val effectiveScale=keyEstimate.scale
-                val transpose=((destinationKey-originalKey+12)%12).let{if(it>6)it-12 else it}
-                val selectedStyle=style.selectedItemPosition
-                val styleName=styles[selectedStyle]
-                val configs=arrayOf(
+        panel.addView(style)
+        val description = TextView(this).apply {
+            text = descriptions[0]
+            textSize = 13f
+            setTextColor(Color.DKGRAY)
+            setPadding(0, 8, 0, 12)
+        }
+        panel.addView(description)
+        style.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                description.text = descriptions[position]
+            }
+        }
+        panel.addView(TextView(this).apply {
+            text = "That's all you need to choose. Key detection, pitch correction, EQ, reverb and other effects happen automatically. Your original recording is always kept safe."
+            textSize = 12f
+            setTextColor(Color.GRAY)
+            setPadding(0, 4, 0, 8)
+        })
+
+        val progress = TextView(this).apply {
+            text = ""
+            textSize = 13f
+            setTextColor(teal)
+            setPadding(0, 8, 0, 4)
+            visibility = View.GONE
+        }
+        panel.addView(progress)
+
+        val dialog = AlertDialog.Builder(this)
+            .setView(panel)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Create My Vocal Version", null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val selectedStyle = style.selectedItemPosition
+                val styleName = styles[selectedStyle]
+                val configs = arrayOf(
                     intArrayOf(50,50,12,20,10,45),
                     intArrayOf(55,68,18,28,8,45),
                     intArrayOf(60,56,30,22,20,38),
@@ -390,35 +384,53 @@ class MainActivity : Activity() {
                     intArrayOf(48,60,28,38,38,48),
                     intArrayOf(50,58,8,35,45,100)
                 )
-                val v=configs[selectedStyle]
-                val amount=v[5]/100.0
-                val tone=AutoTuneProcessor.ToneSettings(
-                    bassDb=(v[0]-50)*0.12,
-                    trebleDb=(v[1]-50)*0.12,
-                    reverb=v[2].toDouble(),
-                    compression=v[3].toDouble(),
-                    formantColor=v[4].toDouble(),
-                    presenceDb=when(selectedStyle){1,6,7,10->2.5;2,5->1.2;3,4,9->-1.0;else->0.0},
-                    deEss=when(selectedStyle){1,6,10->0.45;2,5,7->0.65;else->0.35},
-                    saturation=when(selectedStyle){4,6,11->0.18;7,10->0.10;else->0.04}
+                val v = configs[selectedStyle]
+                val amount = v[5] / 100.0
+                val tone = AutoTuneProcessor.ToneSettings(
+                    bassDb = (v[0] - 50) * 0.12,
+                    trebleDb = (v[1] - 50) * 0.12,
+                    reverb = v[2].toDouble(),
+                    compression = v[3].toDouble(),
+                    formantColor = v[4].toDouble(),
+                    presenceDb = when(selectedStyle) { 1,6,7,10 -> 2.5; 2,5 -> 1.2; 3,4,9 -> -1.0; else -> 0.0 },
+                    deEss = when(selectedStyle) { 1,6,10 -> 0.45; 2,5,7 -> 0.65; else -> 0.35 },
+                    saturation = when(selectedStyle) { 4,6,11 -> 0.18; 7,10 -> 0.10; else -> 0.04 }
                 )
-                thread(name="JacksRePOAutoTune"){
-                    try{
-                        var output=File(filesDir,source.nameWithoutExtension+"_"+styleName.lowercase().replace(Regex("[^a-z0-9]+"),"_")+".wav")
-                        var suffix=2
-                        while(output.exists()){output=File(filesDir,source.nameWithoutExtension+"_"+styleName.lowercase().replace(Regex("[^a-z0-9]+"),"_")+"_"+suffix+".wav");suffix++}
-                        val corrected=AutoTuneProcessor.process(source,output,destinationKey,effectiveScale,amount,tone,if(selectedMode==0)0 else transpose)
-                        runOnUiThread{
-                            dialog.dismiss()
-                            renderLibrary()
-                            val action=if(selectedMode==0)"matched-key" else "transposed $transpose semitones"
-                            toast(if(corrected>0)"$styleName $action copy saved · $corrected sections corrected." else "$styleName $action copy saved.")
+
+                style.isEnabled = false
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).isEnabled = false
+                progress.visibility = View.VISIBLE
+                progress.text = "Listening for the song's notes and preparing your vocal style…"
+
+                thread(name = "JacksREPOAutoTune") {
+                    try {
+                        // Key/scale estimation is intentionally automatic and hidden from the user.
+                        val estimate = AutoTuneProcessor.detectKey(source)
+                        val effectiveScale = if (estimate.confidence >= 0.08) estimate.scale else 2
+                        var output = File(filesDir, source.nameWithoutExtension + "_" + styleName.lowercase().replace(Regex("[^a-z0-9]+"), "_") + ".wav")
+                        var suffix = 2
+                        while (output.exists()) {
+                            output = File(filesDir, source.nameWithoutExtension + "_" + styleName.lowercase().replace(Regex("[^a-z0-9]+"), "_") + "_" + suffix + ".wav")
+                            suffix++
                         }
-                    }catch(e:Exception){
-                        runOnUiThread{
-                            dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled=true
-                            dialog.getButton(AlertDialog.BUTTON_POSITIVE).text="Create emotional copy"
-                            toast("Audio processing failed: "+(e.message?:"audio error"))
+                        val corrected = AutoTuneProcessor.process(source, output, estimate.key, effectiveScale, amount, tone, 0)
+                        runOnUiThread {
+                            if (!isFinishing) {
+                                dialog.dismiss()
+                                renderLibrary()
+                                toast(if (corrected > 0) "$styleName version saved · pitch correction applied." else "$styleName version saved.")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        runOnUiThread {
+                            if (!isFinishing) {
+                                style.isEnabled = true
+                                dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
+                                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).isEnabled = true
+                                progress.text = "Couldn't create the vocal version. Please try again."
+                                toast("Audio processing failed: " + (e.message ?: "audio error"))
+                            }
                         }
                     }
                 }
