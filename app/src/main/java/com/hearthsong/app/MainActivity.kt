@@ -289,17 +289,58 @@ class MainActivity : Activity() {
         panel.addView(TextView(this).apply{text="♫ Auto-Tune";textSize=22f;setTextColor(teal);setTypeface(null,Typeface.BOLD)})
         panel.addView(TextView(this).apply{text="Choose a ready-made sound, then adjust how strongly the recording is corrected.";textSize=13f;setTextColor(Color.DKGRAY);setPadding(0,6,0,10)})
         fun addLabel(value:String){panel.addView(TextView(this).apply{text=value;textSize=13f;setTextColor(Color.DKGRAY);setPadding(0,8,0,2)})}
-        addLabel("PRELOADED STYLE")
-        val styles=listOf(
-            "Natural",
-            "Strong",
-            "Robotic / T-Pain",
-            "Powerful Rap · Firm tuning",
-            "Dream Pop · Soft tuning",
-            "Melodic Hip-Hop · Bright tuning"
-        )
-        val style=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,styles);setSelection(3)}
+        addLabel("EMOTIONAL VOCAL STYLE")
+        val styles=listOf("Natural","Cheerful · bright and lively","Romantic · warm and gentle","Sad · soft and melancholic","Dark / Depressive · subdued","Sultry · smooth and intimate","Angry · intense and forceful","Confident · bold and present","Dreamy · soft and spacious","Heartbroken · fragile and expressive","Dramatic · strong and emotional","Robotic · heavily tuned")
+        val style=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,styles);setSelection(0)}
         panel.addView(style)
+        addLabel("PITCH CORRECTION")
+        val strength=SeekBar(this).apply{max=100;progress=45}
+        val strengthLabel=TextView(this).apply{text="45%";textSize=13f;setTextColor(teal)}
+        panel.addView(strength);panel.addView(strengthLabel)
+        fun addToneControl(label:String,initial:Int):SeekBar{
+            addLabel(label)
+            val bar=SeekBar(this).apply{max=100;progress=initial}
+            val value=TextView(this).apply{text="$initial%";textSize=12f;setTextColor(teal)}
+            panel.addView(bar);panel.addView(value)
+            bar.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
+                override fun onProgressChanged(seekBar:SeekBar?,progress:Int,fromUser:Boolean){value.text="$progress%"}
+                override fun onStartTrackingTouch(seekBar:SeekBar?){}
+                override fun onStopTrackingTouch(seekBar:SeekBar?){}
+            })
+            return bar
+        }
+        val bass=addToneControl("BASS / WARMTH · 50% = neutral",50)
+        val treble=addToneControl("TREBLE / BRIGHTNESS · 50% = neutral",50)
+        val reverb=addToneControl("REVERB / SPACE",12)
+        val compression=addToneControl("DYNAMICS / EVEN OUT VOLUME",20)
+        val formant=addToneControl("VOCAL COLOR · FORMANT-STYLE RESONANCE",10)
+        fun setPreset(position:Int){
+            val v=when(position){
+                1->intArrayOf(55,68,18,28,8,45)
+                2->intArrayOf(60,56,30,22,20,38)
+                3->intArrayOf(42,42,24,20,18,35)
+                4->intArrayOf(38,35,12,35,35,42)
+                5->intArrayOf(58,54,32,18,12,32)
+                6->intArrayOf(48,65,8,48,42,50)
+                7->intArrayOf(55,62,10,42,30,48)
+                8->intArrayOf(54,58,48,16,12,32)
+                9->intArrayOf(42,45,38,25,25,38)
+                10->intArrayOf(48,60,28,38,38,48)
+                11->intArrayOf(50,58,8,35,45,100)
+                else->intArrayOf(50,50,12,20,10,45)
+            }
+            bass.progress=v[0];treble.progress=v[1];reverb.progress=v[2]
+            compression.progress=v[3];formant.progress=v[4];strength.progress=v[5]
+        }
+        style.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{
+            override fun onNothingSelected(parent:AdapterView<*>?){}
+            override fun onItemSelected(parent:AdapterView<*>?,view:View?,position:Int,id:Long){setPreset(position)}
+        }
+        strength.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
+            override fun onProgressChanged(seekBar:SeekBar?,progress:Int,fromUser:Boolean){strengthLabel.text="$progress%"}
+            override fun onStartTrackingTouch(seekBar:SeekBar?){}
+            override fun onStopTrackingTouch(seekBar:SeekBar?){}
+        })
         addLabel("KEY · SONG'S HOME NOTE")
         panel.addView(TextView(this).apply{text="ELI5: The key is the song's musical home note. Choose the note that feels like the song's main resting point (for example, C or E). If you already know your guitar song's key, select it here.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,2,0,6)})
         val keys=listOf("C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B")
@@ -324,7 +365,7 @@ class MainActivity : Activity() {
             override fun onStartTrackingTouch(seekBar:SeekBar?){}
             override fun onStopTrackingTouch(seekBar:SeekBar?){}
         })
-        panel.addView(TextView(this).apply{text="These presets adjust pitch-correction strength only; they do not change vocal tone, EQ, reverb, or make a voice sound like a particular race or age. Choose the song's actual key and scale for the best chance of natural correction. This experimental effect processes the complete recording, so guitar notes and chords may change too. Your original stays untouched.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,10,0,8)})
+        panel.addView(TextView(this).apply{text="These emotional presets shape the mood using basic EQ, delay reverb, compression, and formant-style resonance. ELI5: Bass adds warmth, treble adds sparkle, reverb adds space, compression evens loud and quiet parts, and vocal color adds resonant tone. The formant-style control is an approximation, not a true vocal formant shifter. Every effect processes the entire voice-and-guitar mix, so guitar tone changes too. This is an experimental lightweight processor, not studio-grade mastering. Your original stays untouched.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,10,0,8)})
         val dialog=AlertDialog.Builder(this).setView(panel).setNegativeButton("Cancel",null).setPositiveButton("Create tuned copy",null).create()
         dialog.setOnShowListener{
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
@@ -335,12 +376,19 @@ class MainActivity : Activity() {
                 val selectedKey=key.selectedItemPosition
                 val selectedScale=scale.selectedItemPosition
                 val styleName=styles[style.selectedItemPosition]
+                val tone=AutoTuneProcessor.ToneSettings(
+                    bassDb=(bass.progress-50)*0.12,
+                    trebleDb=(treble.progress-50)*0.12,
+                    reverb=reverb.progress.toDouble(),
+                    compression=compression.progress.toDouble(),
+                    formantColor=formant.progress.toDouble()
+                )
                 thread(name="JacksRePOAutoTune"){
                     try{
                         var output=File(filesDir,source.nameWithoutExtension+"_tuned.wav")
                         var suffix=2
                         while(output.exists()){output=File(filesDir,source.nameWithoutExtension+"_tuned$suffix.wav");suffix++}
-                        val corrected=AutoTuneProcessor.process(source,output,selectedKey,selectedScale,amount)
+                        val corrected=AutoTuneProcessor.process(source,output,selectedKey,selectedScale,amount,tone)
                         runOnUiThread{
                             dialog.dismiss()
                             renderLibrary()
