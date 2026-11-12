@@ -319,14 +319,6 @@ class MainActivity : Activity() {
             setPadding(0, 8, 0, 14)
         })
         panel.addView(TextView(this).apply {
-            text = "CHOOSE YOUR VOCAL STYLE"
-            textSize = 12f
-            setTextColor(teal)
-            setTypeface(null, Typeface.BOLD)
-            setPadding(0, 4, 0, 6)
-        })
-
-        panel.addView(TextView(this).apply {
             text = "CHOOSE YOUR SOUND"
             textSize = 12f
             setTextColor(teal)
@@ -340,6 +332,13 @@ class MainActivity : Activity() {
         }
         panel.addView(finishMode)
 
+        panel.addView(TextView(this).apply {
+            text = "CHOOSE YOUR EMOTION"
+            textSize = 12f
+            setTextColor(teal)
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 10, 0, 6)
+        })
         val styles = listOf("Natural", "Cheerful", "Romantic", "Sad", "Dark / Depressive", "Sultry", "Angry", "Confident", "Dreamy", "Heartbroken", "Dramatic", "Robotic")
         val descriptions = listOf(
             "A balanced, natural sound with gentle pitch correction.",
