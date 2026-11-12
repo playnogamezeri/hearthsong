@@ -53,6 +53,7 @@ class MainActivity : Activity() {
     private lateinit var recordButton: Button
     private lateinit var editorPage: LinearLayout
     private lateinit var libraryPage: LinearLayout
+    private lateinit var homePage: LinearLayout
     private var player: MediaPlayer? = null
     private var playingFile: String? = null
     private var playbackSeek: SeekBar? = null
@@ -126,15 +127,26 @@ class MainActivity : Activity() {
         val page = ScrollView(this).apply { isFillViewport=true; isVerticalScrollBarEnabled=true }
         val root = LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(16,18,16,20); setBackgroundColor(Color.WHITE) }
         page.addView(root)
-        root.addView(TextView(this).apply { text="♫ Jack's RePO"; textSize=26f; setTextColor(teal) })
-        root.addView(TextView(this).apply { text="PRIVATE SONGWRITING STUDIO"; textSize=10f; letterSpacing=.14f; setTextColor(Color.GRAY) })
-        val tabs=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
-        tabs.addView(button("Write"){showPage(false)},LinearLayout.LayoutParams(0,-2,1f))
-        tabs.addView(button("My songs"){showPage(true)},LinearLayout.LayoutParams(0,-2,1f))
-        root.addView(tabs)
-        editorPage=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
+        root.addView(TextView(this).apply { text="♫ Jack's RePO"; textSize=28f; setTypeface(null,Typeface.BOLD); setTextColor(teal); setPadding(2,4,2,2) })
+        root.addView(TextView(this).apply { text="YOUR PRIVATE SONGWRITING & PERFORMANCE STUDIO"; textSize=10f; letterSpacing=.12f; setTextColor(Color.GRAY); setPadding(2,0,2,14) })
+        homePage=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
+        homePage.addView(TextView(this).apply{text="What would you like to do today?";textSize=21f;setTypeface(null,Typeface.BOLD);setTextColor(Color.rgb(27,52,49));setPadding(2,18,2,8)})
+        homePage.addView(TextView(this).apply{text="Choose a simple starting point. Your songs and recordings stay on this phone.";textSize=14f;setTextColor(Color.DKGRAY);setPadding(2,0,2,14)})
+        fun addHomeChoice(title:String,description:String,action:()->Unit){
+            val card=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(14,12,14,12);setBackgroundColor(Color.rgb(241,249,247))}
+            card.addView(TextView(this).apply{text=title;textSize=18f;setTypeface(null,Typeface.BOLD);setTextColor(Color.rgb(25,75,69))})
+            card.addView(TextView(this).apply{text=description;textSize=13f;setTextColor(Color.DKGRAY);setPadding(0,4,0,8)})
+            card.addView(button("Open"){action()})
+            val params=LinearLayout.LayoutParams(-1,-2);params.bottomMargin=(resources.displayMetrics.density*12).toInt()
+            homePage.addView(card,params)
+        }
+        addHomeChoice("✍  Write Lyrics","Create a song, shape your words, and save your lyrics."){showPage(false)}
+        addHomeChoice("🎤  Sing Lyrics","Open a clean lyric-following screen for singing practice. No guitar recording."){showLyrics(false)}
+        addHomeChoice("🎸  Sing & Play Guitar","Follow your lyrics while recording your voice and guitar together."){showLyrics(true);startPerformance()}
+        homePage.addView(button("My Songs & Recordings"){showPage(true)})
+        editorPage=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;visibility=View.GONE}
         libraryPage=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;visibility=View.GONE}
-        root.addView(editorPage);root.addView(libraryPage)
+        root.addView(homePage);root.addView(editorPage);root.addView(libraryPage)
         titleBox=EditText(this).apply { hint="Song title"; setSingleLine(true) }; editorPage.addView(titleBox)
         lyricsBox=EditText(this).apply { hint="Write your original lyrics here…"; minLines=5; gravity=android.view.Gravity.TOP; textSize=17f }
         editorPage.addView(lyricsBox,LinearLayout.LayoutParams(-1,220))
@@ -159,9 +171,7 @@ class MainActivity : Activity() {
         libraryPage.addView(button("Restore from backup file"){restoreBackupPicker()})
         libraryPage.addView(TextView(this).apply{text="Backups include your saved lyrics and audio recordings. Keep the backup somewhere safe.";textSize=12f;setTextColor(Color.GRAY);setPadding(4,2,4,10)})
         library=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
-        // Use the screen's single outer ScrollView for the entire library.
-        // A second, wrap-content ScrollView here can expand beyond the viewport
-        // and create competing scroll containers when many recordings are saved.
+        // Keep one outer scroll container so long recording libraries remain reachable.
         libraryPage.addView(library,LinearLayout.LayoutParams(-1,-2))
         setContentView(page)
         renderLibrary()
@@ -170,6 +180,7 @@ class MainActivity : Activity() {
 
     private fun showPage(showLibrary:Boolean){
         if(!::editorPage.isInitialized)return
+        homePage.visibility=View.GONE
         editorPage.visibility=if(showLibrary)View.GONE else View.VISIBLE
         libraryPage.visibility=if(showLibrary)View.VISIBLE else View.GONE
         if(showLibrary)renderLibrary()
@@ -602,7 +613,7 @@ class MainActivity : Activity() {
         }catch(e:Exception){player?.release();player=null;playingFile=null;toast("Could not play this recording.")}
     }
 
-    private fun showLyrics(){
+    private fun showLyrics(performanceMode:Boolean=true){
         if(lyricsBox.text.isBlank()){toast("Write lyrics first.");return}
         lyricLines=lyricsBox.text.toString().lines()
         currentLineIndex=0
@@ -632,9 +643,9 @@ class MainActivity : Activity() {
         scroll.addView(display,android.widget.FrameLayout.LayoutParams(-1,-2))
         shell.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
         val liveStatus=TextView(this).apply{text="Ready. Start Performance records your voice while following lyrics on this phone.";textSize=12f;setTextColor(teal);setPadding(4,8,4,4)}
-        shell.addView(liveStatus)
+        if(performanceMode)shell.addView(liveStatus)
         val liveTimer=TextView(this).apply{text="REC  00:00";textSize=16f;setTypeface(null,Typeface.BOLD);setTextColor(Color.rgb(190,45,50));gravity=android.view.Gravity.CENTER;setPadding(4,6,4,6)}
-        shell.addView(liveTimer)
+        if(performanceMode)shell.addView(liveTimer)
         val takes=filesDir.listFiles()?.filter{it.name.startsWith("take_")&&it.extension in setOf("m4a","wav")}?.sortedByDescending{it.lastModified()}?: emptyList()
         val playbackPanel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(10,8,10,8);setBackgroundColor(Color.rgb(239,248,246))}
         playbackPanel.addView(TextView(this).apply{text="YOUR RECORDINGS";textSize=11f;setTextColor(teal);setTypeface(null,Typeface.BOLD)})
@@ -664,13 +675,15 @@ class MainActivity : Activity() {
         playbackActions.addView(playbackButton,LinearLayout.LayoutParams(0,-2,1f))
         playbackActions.addView(button("Stop"){player?.stop();player?.release();player=null;playingFile=null;handler.removeCallbacks(playbackTick);popupPlaybackSeek?.progress=0;popupPlaybackSeek?.isEnabled=false;popupPlaybackTime?.text="00:00 / 00:00";popupPlaybackButton?.text="▶ Play recording"},LinearLayout.LayoutParams(0,-2,1f))
         playbackPanel.addView(playbackActions)
-        shell.addView(playbackPanel)
+        if(performanceMode)shell.addView(playbackPanel)
         if(takes.isEmpty()) playbackPanel.alpha=0.85f
         val controls=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
-        val performanceControl=button("▶ Start Performance"){if(modelLoading)toast("Preparing offline voice recognition…") else if(performanceFinalizing)toast("Saving the previous performance…") else if(recordingActive)stopPerformance() else startPerformance()}
-        popupPerformanceButton=performanceControl
-        controls.addView(performanceControl,LinearLayout.LayoutParams(0,-2,2f))
-        controls.addView(button("Close"){if(recordingActive)stopPerformance();dialog.dismiss()},LinearLayout.LayoutParams(0,-2,1f))
+        if(performanceMode){
+            val performanceControl=button("▶ Start Performance"){if(modelLoading)toast("Preparing offline voice recognition…") else if(performanceFinalizing)toast("Saving the previous performance…") else if(recordingActive)stopPerformance() else startPerformance()}
+            popupPerformanceButton=performanceControl
+            controls.addView(performanceControl,LinearLayout.LayoutParams(0,-2,2f))
+        }
+        controls.addView(button(if(performanceMode)"Close" else "Back to Home"){if(recordingActive)stopPerformance();dialog.dismiss()},LinearLayout.LayoutParams(0,-2,1f))
         shell.addView(controls)
         dialog.setContentView(shell)
         dialog.show()
@@ -900,3 +913,78 @@ class MainActivity : Activity() {
         var best=-1;var bestScore=0
         for(index in first..last){
             val words=lyricLines[index].lowercase().replace(Regex("[^\\p{L}\\p{N} ]")," ").split(Regex("\\s+")).filter{it.isNotBlank()}
+            if(words.isEmpty())continue
+            val score=tokens.count{token->words.any{word->word==token || (token.length>=4 && word.startsWith(token)) || (word.length>=4 && token.startsWith(word))}}
+            val required=if(words.size<=3)1 else 2
+            val adjusted=score*100-(index-currentLineIndex)*8
+            if(score>=required && adjusted>bestScore){bestScore=adjusted;best=index}
+        }
+        // Lyric movement is now time-based auto-scroll; speech recognition no longer
+        // controls highlighting or scroll position, so singing freely won't fight the screen.
+    }
+
+    private var lastRecognizedPhrase=""
+
+    private fun stopPerformance(){
+        if(!recordingActive)return
+        recordingActive=false
+        handler.removeCallbacks(lyricAutoScrollTick)
+        performanceFinalizing=true
+        recognitionEnabled=false
+        try{performanceAudio?.stop()}catch(_:Exception){}
+        popupStatus?.text="Finishing and saving your performance…"
+        status.text="Finishing performance recording…"
+        handler.removeCallbacks(timerTick)
+        updateRecordButton(false)
+        popupPerformanceButton?.text="▶ Start Performance"
+    }
+
+    private fun startPitchMonitor(){
+        if(pitchRunning)return
+        val rate=16000
+        val size=AudioRecord.getMinBufferSize(rate,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT)
+        if(size<=0){pitchView.text="Pitch monitor unavailable";return}
+        try{
+            audioRecord=AudioRecord(MediaRecorder.AudioSource.MIC,rate,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT,maxOf(size,4096))
+            audioRecord?.startRecording();pitchRunning=true
+            thread(name="HearthsongPitch"){
+                val data=ShortArray(4096)
+                while(pitchRunning){
+                    val n=audioRecord?.read(data,0,data.size)?:0
+                    if(n>1024){
+                        val hz=estimatePitch(data,n,rate)
+                        if(hz>0){
+                            val midi=(69+12*(ln(hz/440.0)/ln(2.0))).toInt()
+                            val names=arrayOf("C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B")
+                            val note=names[((midi%12)+12)%12]+(midi/12-1)
+                            runOnUiThread{pitchView.text="Approx. pitch: "+note+" · "+hz.toInt()+" Hz"}
+                        }
+                    }
+                }
+            }
+        }catch(_:Exception){pitchView.text="Pitch monitor unavailable"}
+    }
+
+    private fun estimatePitch(data:ShortArray,count:Int,sampleRate:Int):Double{
+        val minLag=sampleRate/800;val maxLag=minOf(sampleRate/70,count/2)
+        var bestLag=0;var best=0.0
+        for(lag in minLag..maxLag step 2){
+            var sum=0.0
+            for(i in 0 until minOf(count-lag,1800))sum+=data[i].toDouble()*data[i+lag].toDouble()
+            if(sum>best){best=sum;bestLag=lag}
+        }
+        return if(bestLag>0)sampleRate.toDouble()/bestLag else 0.0
+    }
+    private fun stopPitchMonitor(){
+        pitchRunning=false
+        try{audioRecord?.stop();audioRecord?.release()}catch(_:Exception){}
+        audioRecord=null;pitchView.text="Pitch monitor stopped"
+    }
+
+    override fun onRequestPermissionsResult(requestCode:Int,permissions:Array<out String>,grantResults:IntArray){
+        super.onRequestPermissionsResult(requestCode,permissions,grantResults)
+        if(grantResults.firstOrNull()==PackageManager.PERMISSION_GRANTED){if(requestCode==43)startPerformance()}
+        else status.text="Microphone permission is needed for this feature."
+    }
+    override fun onDestroy(){if(recordingActive)stopPerformance();try{performanceThread?.join(1200)}catch(_:InterruptedException){};stopPitchMonitor();player?.release();player=null;try{voskModel?.close()}catch(_:Exception){};super.onDestroy()}
+}
