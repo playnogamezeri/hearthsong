@@ -46,3 +46,14 @@ When Start Performance is pressed, the lyric screen begins a gentle, steady down
 - Auto-Tune labels explain **Key** as the song's home note and **Scale** as the family of notes that fit the song.
 - Major often sounds brighter, Minor often sounds moodier, and Chromatic allows all 12 notes. These are simple starting explanations, not a substitute for identifying the actual key and scale.
 - Auto-Tune remains experimental and processes the complete voice-and-guitar recording.
+
+
+## Emotional tone processing (0.5.6)
+
+- Emotional-style presets include Natural, Cheerful, Romantic, Sad, Dark / Depressive, Sultry, Angry, Confident, Dreamy, Heartbroken, Dramatic, and Robotic.
+- Presets combine adjustable pitch correction with local whole-mix bass/treble EQ, simple delay-based reverb, dynamic-range compression, and formant-style resonant coloration.
+- The processing is applied to the entire mono recording, including guitar. It does not isolate vocals.
+- The formant-style control uses two resonant EQ peaks to color the tone. It is **not** a true formant shifter and cannot independently reshape vocal anatomy or guarantee an emotional performance.
+- Reverb is a lightweight multi-tap delay, not convolution reverb. Compression and EQ are simple first-pass DSP, not studio-grade mastering.
+- The original recording is kept unchanged; each processed result is saved as a new WAV copy. Processing is on-device.
+- These effects are experimental and need listening tests on the target phone and different voice/guitar recordings. A successful GitHub build only verifies compilation and packaging.
