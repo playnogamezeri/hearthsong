@@ -72,5 +72,5 @@ When Start Performance is pressed, the lyric screen begins a gentle, steady down
 - **Match My Recording** estimates a key and major/minor mode from the recorded mono mix, then uses that estimate as the pitch-correction target.
 - **Change to a Different Key** estimates the source tonic, lets the user choose a destination tonic, and transposes the complete mix while retaining the estimated major/minor mode.
 - Key detection is experimental and analyzes the combined voice-and-guitar signal. Chords, accompaniment, noise, and strong harmonics can produce a wrong estimate; the app displays a confidence indicator and the result should be checked by listening.
-- Transposition currently uses resampling, so changing key also changes playback speed and duration. It is not yet a tempo-preserving pitch shifter.
+- Transposition resamples to shift pitch, then uses waveform-similarity overlap-add (WSOLA) time stretching to restore the original sample count and preserve the recording duration and tempo. This lightweight mono algorithm is experimental; dense guitar chords, strong transients, and larger shifts may create audible artifacts.
 - Both modes create a new WAV copy and leave the original recording unchanged. All analysis and processing run on-device.
