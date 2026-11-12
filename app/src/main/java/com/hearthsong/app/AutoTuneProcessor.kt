@@ -98,10 +98,81 @@ internal object AutoTuneProcessor {
         return result to corrected
     }
 
+    /**
+     * Pitch-shifts by resampling, then restores the original duration with WSOLA.
+     * WSOLA aligns overlapping waveform sections to preserve local pitch while
+     * changing their spacing in time. This is a lightweight mono implementation;
+     * large shifts and dense guitar chords can still produce audible artifacts.
+     */
     private fun transposeWithSpeedChange(input:ShortArray,semitones:Int):ShortArray{
-        val ratio=2.0.pow(semitones/12.0);val outSize=(input.size/ratio).roundToInt().coerceAtLeast(1)
-        return ShortArray(outSize){i->val pos=i*ratio;val left=pos.toInt().coerceIn(0,input.lastIndex);val right=(left+1).coerceAtMost(input.lastIndex);val frac=pos-left
-            (input[left]*(1.0-frac)+input[right]*frac).roundToInt().coerceIn(-32768,32767).toShort()}
+        val pitchRatio=2.0.pow(semitones/12.0)
+        val resampledSize=(input.size/pitchRatio).roundToInt().coerceAtLeast(1)
+        val resampled=ShortArray(resampledSize){i->
+            val pos=i*pitchRatio
+            val left=pos.toInt().coerceIn(0,input.lastIndex)
+            val right=(left+1).coerceAtMost(input.lastIndex)
+            val frac=pos-left
+            (input[left]*(1.0-frac)+input[right]*frac).roundToInt().coerceIn(-32768,32767).toShort()
+        }
+        return stretchWsola(resampled,input.size,pitchRatio)
+    }
+
+    /** Waveform-similarity overlap-add time stretch; output has exactly targetLength samples. */
+    private fun stretchWsola(input:ShortArray,targetLength:Int,stretch:Double):ShortArray{
+        if(input.isEmpty()||targetLength<=0)return ShortArray(0)
+        if(input.size<1024||abs(stretch-1.0)<0.0001){
+            return ShortArray(targetLength){i->input[(i.toLong()*input.size/targetLength).toInt().coerceIn(0,input.lastIndex)]}
+        }
+        val frame=1024
+        val overlap=512
+        val synthesisHop=frame-overlap
+        val analysisHop=(synthesisHop/stretch).roundToInt().coerceAtLeast(1)
+        val search=160
+        val accum=DoubleArray(targetLength+frame)
+        val weights=DoubleArray(targetLength+frame)
+        var outputPos=0
+        var inputPos=0
+        var first=true
+        while(outputPos<targetLength){
+            var chosen=inputPos.coerceIn(0,(input.size-frame).coerceAtLeast(0))
+            if(!first){
+                val expected=(inputPos+analysisHop).coerceIn(0,(input.size-frame).coerceAtLeast(0))
+                var bestScore=Double.NEGATIVE_INFINITY
+                val low=(expected-search).coerceAtLeast(0)
+                val high=(expected+search).coerceAtMost((input.size-frame).coerceAtLeast(0))
+                for(candidate in low..high step 4){
+                    var dot=0.0;var aa=0.0;var bb=0.0
+                    val count=minOf(overlap,targetLength-outputPos)
+                    for(j in 0 until count){
+                        val a=if(outputPos+j<accum.size&&weights[outputPos+j]>1e-9)accum[outputPos+j]/weights[outputPos+j] else 0.0
+                        val b=input[candidate+j].toDouble()
+                        dot+=a*b;aa+=a*a;bb+=b*b
+                    }
+                    val score=if(aa>1.0&&bb>1.0)dot/sqrt(aa*bb)else 0.0
+                    if(score>bestScore){bestScore=score;chosen=candidate}
+                }
+            }
+            val count=minOf(frame,input.size-chosen,targetLength-outputPos)
+            for(j in 0 until count){
+                val phase=j.toDouble()/(frame-1)
+                val window=if(first){
+                    if(phase<0.5)1.0 else 0.5+0.5*cos(Math.PI*(phase-0.5)*2.0)
+                }else if(j<overlap){
+                    0.5-0.5*cos(Math.PI*j/overlap)
+                }else{
+                    1.0
+                }
+                accum[outputPos+j]+=input[chosen+j].toDouble()*window
+                weights[outputPos+j]+=window
+            }
+            first=false
+            inputPos=chosen
+            outputPos+=synthesisHop
+        }
+        return ShortArray(targetLength){i->
+            val value=if(weights[i]>1e-8)accum[i]/weights[i] else input[minOf(input.lastIndex,(i.toLong()*input.size/targetLength).toInt())].toDouble()
+            value.roundToInt().coerceIn(-32768,32767).toShort()
+        }
     }
     private fun applyTone(input:ShortArray,rate:Int,s:ToneSettings):ShortArray{
         val x=DoubleArray(input.size){input[it].toDouble()/32768.0}
