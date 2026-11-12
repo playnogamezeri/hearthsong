@@ -92,3 +92,13 @@ When Start Performance is pressed, the lyric screen begins a gentle, steady down
 - Key and scale analysis runs automatically in the background; users no longer need to understand or select musical keys/scales or manually press Analyze.
 - If the key/scale estimate has low confidence, pitch correction uses chromatic mode rather than forcing a potentially incorrect major/minor scale.
 - The app creates a new processed WAV copy and keeps the original take unchanged.
+
+
+## Auto-Tune Engine 3.0 (0.7.0)
+
+- The Auto-Tune screen offers two simple sound directions: **Natural & Expressive** and **Polished Pop / Hip-Hop**, alongside the existing emotion choices.
+- Natural mode uses a conservative correction range and stronger vibrato preservation. Polished mode uses firmer correction and a denser vocal-style finish. The Robotic emotion remains intentionally strong in either mode.
+- A new offline pitch stage uses YIN-style periodicity analysis, confidence gating, a short median pitch trajectory, smoothed correction movement, and windowed overlap-add processing. Uncertain/unvoiced frames are treated cautiously rather than being forced to a guessed note.
+- The existing emotional DSP stage remains responsible for tone shaping. Polished mode adjusts the preset's compression, presence, de-essing, saturation, and reverb balance automatically.
+- This is an experimental mono-mix engine, not a claim of professional-grade Auto-Tune or a substitute for a studio vocal chain. The microphone recording contains voice and guitar together; there is no vocal/instrument source separation, so guitar notes may still be affected and chords can confuse pitch analysis.
+- The original WAV is never overwritten. A new processed WAV is created locally on the phone. A successful build confirms compilation and packaging only; real listening tests on the target phone and with varied singing styles are still required.
