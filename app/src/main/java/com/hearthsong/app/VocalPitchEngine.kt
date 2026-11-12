@@ -127,17 +127,22 @@ internal object VocalPitchEngine {
 
     /** Returns estimated fundamental frequency and periodicity confidence. */
     private fun yin(frame: DoubleArray, sampleRate: Int): Pair<Double, Double> {
-        val minLag = (sampleRate / 600).coerceAtLeast(2)
-        val maxLag = min((sampleRate / 75).coerceAtMost(frame.size / 2), frame.size / 2 - 1)
+        // Analyze every second sample to reduce CPU cost on longer phone recordings.
+        val reduced = DoubleArray(frame.size / 2) { frame[it * 2] }
+        val reducedRate = sampleRate / 2
+        val minLag = (reducedRate / 600).coerceAtLeast(2)
+        val maxLag = min((reducedRate / 75).coerceAtMost(reduced.size / 2), reduced.size / 2 - 1)
         if (maxLag <= minLag) return 0.0 to 0.0
 
         val difference = DoubleArray(maxLag + 1)
         for (lag in 1..maxLag) {
             var sum = 0.0
-            val limit = frame.size - maxLag
-            for (i in 0 until limit) {
-                val delta = frame[i] - frame[i + lag]
+            val limit = reduced.size - maxLag
+            var i = 0
+            while (i < limit) {
+                val delta = reduced[i] - reduced[i + lag]
                 sum += delta * delta
+                i += 2
             }
             difference[lag] = sum
         }
@@ -179,7 +184,7 @@ internal object VocalPitchEngine {
         val denominator = a - 2.0 * b + c
         val offset = if (abs(denominator) > 1e-12) 0.5 * (a - c) / denominator else 0.0
         val refinedLag = (chosen + offset.coerceIn(-0.5, 0.5)).coerceAtLeast(1.0)
-        return (sampleRate / refinedLag) to (1.0 - b).coerceIn(0.0, 1.0)
+        return (reducedRate / refinedLag) to (1.0 - b).coerceIn(0.0, 1.0)
     }
 
     private fun nearestScaleNote(midi: Double, key: Int, notes: IntArray): Double {
