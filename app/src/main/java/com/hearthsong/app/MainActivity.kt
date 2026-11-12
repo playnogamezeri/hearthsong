@@ -456,7 +456,7 @@ class MainActivity : Activity() {
                             if(name=="hearthsong-backup.json"){
                                 val text=zip.readBytes().toString(Charsets.UTF_8)
                                 metadata=JSONObject(text)
-                            }else if(name.startsWith("recordings/") && name.removePrefix("recordings/").matches(Regex("take_[0-9]+(?:\\.m4a|\\.wav)"))){
+                            }else if(name.startsWith("recordings/") && name.removePrefix("recordings/").matches(Regex("take_[0-9]+(?:_tuned[0-9]*)?(?:\\.m4a|\\.wav)"))){
                                 val out=java.io.File(tempDir,name.substringAfterLast('/'))
                                 out.outputStream().use{zip.copyTo(it)}
                             }
