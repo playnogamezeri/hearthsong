@@ -14,7 +14,31 @@ internal object AutoTuneProcessor {
         val formantColor: Double = 0.0
     )
 
-    fun process(input: File, output: File, key: Int, scale: Int, strength: Double, tone: ToneSettings): Int {
+    data class KeyEstimate(val key: Int, val scale: Int, val confidence: Double, val noteCount: Int)
+    fun detectKey(input: File): KeyEstimate {
+        val pair=readMonoWav(input); val rate=pair.first; val samples=pair.second
+        val hist=DoubleArray(12); var valid=0; val frameSize=2048; var start=0
+        while(start+frameSize<=samples.size){
+            val frame=ShortArray(frameSize){samples[start+it]}
+            val rms=sqrt(frame.sumOf{it.toDouble()*it}/frameSize)
+            if(rms>220.0){val hz=estimate(frame,rate);if(hz in 70.0..1000.0){
+                val midi=(69.0+12.0*ln(hz/440.0)/ln(2.0)).roundToInt()
+                hist[((midi%12)+12)%12]+=minOf(rms,5000.0);valid++
+            }}
+            start+=1024
+        }
+        if(valid<4)error("Not enough clear pitched audio to estimate a key. Try a longer, clearer recording.")
+        val major=intArrayOf(6,2,3,2,5,2,3,6,2,4,2,3)
+        val minor=intArrayOf(6,2,3,5,2,3,2,5,3,2,4,3)
+        var bestKey=0;var bestScale=0;var best=Double.NEGATIVE_INFINITY;var second=Double.NEGATIVE_INFINITY
+        for(k in 0..11)for(s in 0..1){val profile=if(s==0)major else minor;var score=0.0
+            for(i in 0..11)score+=hist[(i+k)%12]*profile[i]
+            if(score>best){second=best;best=score;bestKey=k;bestScale=s}else if(score>second)second=score
+        }
+        val confidence=if(best>0)((best-second).coerceAtLeast(0.0)/best).coerceIn(0.0,1.0)else 0.0
+        return KeyEstimate(bestKey,bestScale,confidence,valid)
+    }
+    fun process(input: File, output: File, key: Int, scale: Int, strength: Double, tone: ToneSettings, transposeSemitones: Int = 0): Int {
         RandomAccessFile(input, "r").use { raf ->
             if (raf.length() < 44 || readAscii(raf,0,4)!="RIFF" || readAscii(raf,8,4)!="WAVE") error("Only standard WAV recordings are supported.")
             var offset=12L; var dataOffset=-1L; var dataSize=0L
@@ -33,7 +57,8 @@ internal object AutoTuneProcessor {
             if(n<2048) error("The recording is too short to tune.")
             val samples=ShortArray(n);raf.seek(dataOffset)
             for(i in 0 until n){val lo=raf.readUnsignedByte();val hi=raf.readUnsignedByte();samples[i]=((hi shl 8) or lo).toShort()}
-            val (pitched,sections)=correct(samples,rate,key,scale,strength)
+            val shifted=if(transposeSemitones!=0)transposeWithSpeedChange(samples,transposeSemitones)else samples
+            val (pitched,sections)=correct(shifted,rate,key,scale,strength)
             val processed=applyTone(pitched,rate,tone)
             writeWav(output,processed,rate)
             return sections
@@ -73,6 +98,11 @@ internal object AutoTuneProcessor {
         return result to corrected
     }
 
+    private fun transposeWithSpeedChange(input:ShortArray,semitones:Int):ShortArray{
+        val ratio=2.0.pow(semitones/12.0);val outSize=(input.size/ratio).roundToInt().coerceAtLeast(1)
+        return ShortArray(outSize){i->val pos=i*ratio;val left=pos.toInt().coerceIn(0,input.lastIndex);val right=(left+1).coerceAtMost(input.lastIndex);val frac=pos-left
+            (input[left]*(1.0-frac)+input[right]*frac).roundToInt().coerceIn(-32768,32767).toShort()}
+    }
     private fun applyTone(input:ShortArray,rate:Int,s:ToneSettings):ShortArray{
         val x=DoubleArray(input.size){input[it].toDouble()/32768.0}
         // Gentle low/high shelving-style EQ, applied to the complete mix.
@@ -120,13 +150,14 @@ internal object AutoTuneProcessor {
     private fun biquad(x:DoubleArray,sr:Int,freq:Double,q:Double,gainDb:Double,type:String){
         val a=10.0.pow(gainDb/40.0);val w=2.0*Math.PI*freq.coerceAtMost(sr*0.45)/sr
         val c=cos(w);val sn=sin(w);val alpha=sn/(2.0*q)
-        val (b0,b1,b2,a0,a1,a2)=when(type){
+        val coeff=when(type){
             "lowshelf"->{val beta=2.0*sqrt(a)*alpha
                 listOf(a*((a+1)-(a-1)*c+beta),2*a*((a-1)-(a+1)*c),a*((a+1)-(a-1)*c-beta),(a+1)+(a-1)*c+beta,-2*((a-1)+(a+1)*c),(a+1)+(a-1)*c-beta)}
             "highshelf"->{val beta=2.0*sqrt(a)*alpha
                 listOf(a*((a+1)+(a-1)*c+beta),-2*a*((a-1)+(a+1)*c),a*((a+1)+(a-1)*c-beta),(a+1)-(a-1)*c+beta,2*((a-1)-(a+1)*c),(a+1)-(a-1)*c-beta)}
             else->{listOf(1+alpha*a,-2*c,1-alpha*a,1+alpha/a,-2*c,1-alpha/a)}
         }
+        val b0=coeff[0];val b1=coeff[1];val b2=coeff[2];val a0=coeff[3];val a1=coeff[4];val a2=coeff[5]
         val nb0=b0/a0;val nb1=b1/a0;val nb2=b2/a0;val na1=a1/a0;val na2=a2/a0
         var x1=0.0;var x2=0.0;var y1=0.0;var y2=0.0
         for(i in x.indices){val v=nb0*x[i]+nb1*x1+nb2*x2-na1*y1-na2*y2;x2=x1;x1=x[i];y2=y1;y1=v;x[i]=v}
@@ -158,6 +189,22 @@ internal object AutoTuneProcessor {
             out.write("RIFF".toByteArray());u32(36+samples.size*2);out.write("WAVE".toByteArray())
             out.write("fmt ".toByteArray());u32(16);u16(1);u16(1);u32(rate);u32(rate*2);u16(2);u16(16)
             out.write("data".toByteArray());u32(samples.size*2);samples.forEach{u16(it.toInt() and 0xffff)}
+        }
+    }
+    private fun readMonoWav(file:File):Pair<Int,ShortArray>{
+        RandomAccessFile(file,"r").use{raf->
+            if(raf.length()<44||readAscii(raf,0,4)!="RIFF"||readAscii(raf,8,4)!="WAVE")error("Only standard WAV recordings are supported.")
+            var offset=12L;var dataOffset=-1L;var dataSize=0L;var rate=0;var channels=0;var bits=0;var format=0
+            while(offset+8<=raf.length()){
+                val id=readAscii(raf,offset,4);val size=readU32(raf,offset+4);val body=offset+8
+                when(id){"fmt "->{raf.seek(body);format=readU16(raf);channels=readU16(raf);rate=readU32(raf,body+4).toInt();raf.seek(body+14);bits=readU16(raf)}
+                    "data"->{dataOffset=body;dataSize=size;break}}
+                offset=body+size+(size and 1L)
+            }
+            if(format!=1||channels!=1||bits!=16||dataOffset<0)error("Key estimation supports mono 16-bit WAV recordings only.")
+            val n=minOf(dataSize/2,Int.MAX_VALUE.toLong()).toInt();val samples=ShortArray(n);raf.seek(dataOffset)
+            for(i in 0 until n){val lo=raf.readUnsignedByte();val hi=raf.readUnsignedByte();samples[i]=((hi shl 8)or lo).toShort()}
+            return rate to samples
         }
     }
     private fun readAscii(raf:RandomAccessFile,at:Long,n:Int):String{val b=ByteArray(n);raf.seek(at);raf.readFully(b);return String(b,Charsets.US_ASCII)}
