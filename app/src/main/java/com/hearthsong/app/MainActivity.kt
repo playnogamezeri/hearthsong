@@ -63,6 +63,7 @@ class MainActivity : Activity() {
     private var popupPlaybackTime: TextView? = null
     private var popupPlaybackButton: Button? = null
     private var popupTakeSpinner: Spinner? = null
+    private var popupRecordingLabel = "▶ Start Performance"
     private var lyricScrollSpeed = 2
     private val lyricAutoScrollTick = object : Runnable {
         override fun run() {
@@ -647,6 +648,7 @@ class MainActivity : Activity() {
     }
 
     private fun showLyrics(performanceMode:Boolean=true){
+        popupRecordingLabel = if(performanceMode) "▶ Start Performance" else "▶ Start Recording"
         if(lyricsBox.text.isBlank()){toast("Write lyrics first.");return}
         lyricLines=lyricsBox.text.toString().lines()
         currentLineIndex=0
@@ -675,10 +677,10 @@ class MainActivity : Activity() {
         val display=TextView(this).apply{textSize=26f;gravity=android.view.Gravity.CENTER;setTextColor(Color.rgb(145,158,155));setPadding(20,190,20,250);setLineSpacing(20f,1.08f);text=lyricLines.joinToString("\n\n")}
         scroll.addView(display,android.widget.FrameLayout.LayoutParams(-1,-2))
         shell.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
-        val liveStatus=TextView(this).apply{text="Ready. Start Performance records your voice while following lyrics on this phone.";textSize=12f;setTextColor(teal);setPadding(4,8,4,4)}
-        if(performanceMode)shell.addView(liveStatus)
+        val liveStatus=TextView(this).apply{text=if(performanceMode)"Ready. Start Performance records your voice and guitar while following lyrics." else "Ready. Start Recording to capture your singing while following lyrics.";textSize=12f;setTextColor(teal);setPadding(4,8,4,4)}
+        shell.addView(liveStatus)
         val liveTimer=TextView(this).apply{text="REC  00:00";textSize=16f;setTypeface(null,Typeface.BOLD);setTextColor(Color.rgb(190,45,50));gravity=android.view.Gravity.CENTER;setPadding(4,6,4,6)}
-        if(performanceMode)shell.addView(liveTimer)
+        shell.addView(liveTimer)
         val takes=filesDir.listFiles()?.filter{it.name.startsWith("take_")&&it.extension in setOf("m4a","wav")}?.sortedByDescending{it.lastModified()}?: emptyList()
         val playbackPanel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(10,8,10,8);setBackgroundColor(Color.rgb(239,248,246))}
         playbackPanel.addView(TextView(this).apply{text="YOUR RECORDINGS";textSize=11f;setTextColor(teal);setTypeface(null,Typeface.BOLD)})
@@ -711,11 +713,9 @@ class MainActivity : Activity() {
         if(performanceMode)shell.addView(playbackPanel)
         if(takes.isEmpty()) playbackPanel.alpha=0.85f
         val controls=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
-        if(performanceMode){
-            val performanceControl=button("▶ Start Performance"){if(modelLoading)toast("Preparing offline voice recognition…") else if(performanceFinalizing)toast("Saving the previous performance…") else if(recordingActive)stopPerformance() else startPerformance()}
-            popupPerformanceButton=performanceControl
-            controls.addView(performanceControl,LinearLayout.LayoutParams(0,-2,2f))
-        }
+        val performanceControl=button(popupRecordingLabel){if(modelLoading)toast("Preparing offline voice recognition…") else if(performanceFinalizing)toast("Saving the previous recording…") else if(recordingActive)stopPerformance() else startPerformance()}
+        popupPerformanceButton=performanceControl
+        controls.addView(performanceControl,LinearLayout.LayoutParams(0,-2,2f))
         controls.addView(button(if(performanceMode)"Close" else "Back to Home"){if(recordingActive)stopPerformance();dialog.dismiss()},LinearLayout.LayoutParams(0,-2,1f))
         shell.addView(controls)
         dialog.setContentView(shell)
@@ -891,7 +891,7 @@ class MainActivity : Activity() {
                 runOnUiThread{
                     performanceAudio=null;performanceThread=null;recordingActive=false;performanceFinalizing=false
                     handler.removeCallbacks(timerTick);updateRecordButton(false)
-                    popupPerformanceButton?.isEnabled=true;popupPerformanceButton?.text="▶ Start Performance";popupTimer?.text="REC  00:00"
+                    popupPerformanceButton?.isEnabled=true;popupPerformanceButton?.text=popupRecordingLabel;popupTimer?.text="REC  00:00"
                     popupStatus?.text=if(final.exists())"Performance saved on this phone. "+if(recognitionFailed)"Audio was saved; lyric matching was unavailable." else "Audio and lyric-following session saved." else "Recording could not be saved."
                     status.text=if(final.exists())"Performance saved locally: "+final.name else "Performance recording failed."
                     renderLibrary()
