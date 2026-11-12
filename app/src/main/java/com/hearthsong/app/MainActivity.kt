@@ -299,6 +299,26 @@ class MainActivity : Activity() {
         panel.addView(mode)
         var detected: AutoTuneProcessor.KeyEstimate? = null
         val detectionStatus=TextView(this).apply{text="Key not analyzed yet.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,6,0,4)}
+
+        addLabel("KEY · SONG'S HOME NOTE")
+        panel.addView(TextView(this).apply{text="ELI5: Pick the musical home note of your song. If you don't know it, leave C as a starting point, but the correction may sound less natural if C isn't the real key.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,2,0,6)})
+        val keys=listOf("C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B")
+        val key=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,keys);setSelection(0)}
+        panel.addView(key)
+        val keyHelp=TextView(this).apply{text="Match mode fills this with the estimated original key. Change mode treats this as the destination key.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,2,0,6)}
+        panel.addView(keyHelp)
+        addLabel("SCALE · NOTES THAT FIT THE SONG")
+        panel.addView(TextView(this).apply{text="ELI5: Major often feels brighter; Minor often feels moodier; Chromatic allows all 12 notes. Choose the scale that matches your song.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,2,0,6)})
+        val scales=listOf("Major","Minor","Chromatic")
+        val scale=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,scales);setSelection(0)}
+        panel.addView(scale)
+        mode.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{
+            override fun onNothingSelected(parent:AdapterView<*>?){}
+            override fun onItemSelected(parent:AdapterView<*>?,view:View?,position:Int,id:Long){
+                keyHelp.text=if(position==0)"Match mode uses the estimated original key and scale." else "Choose the destination key. The app estimates the original key and keeps its major/minor mode."
+                detected?.let{if(position==0){key.setSelection(it.key);scale.setSelection(it.scale)}}
+            }
+        }
         panel.addView(button("Analyze my recording"){
             detectionStatus.text="Analyzing the recording…"
             thread(name="JacksREPOKeyAnalysis"){
@@ -314,25 +334,6 @@ class MainActivity : Activity() {
             }
         })
         panel.addView(detectionStatus)
-        addLabel("KEY · SONG'S HOME NOTE")
-        panel.addView(TextView(this).apply{text="ELI5: Pick the musical home note of your song. If you don't know it, leave C as a starting point, but the correction may sound less natural if C isn't the real key.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,2,0,6)})
-        val keys=listOf("C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B")
-        val key=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,keys);setSelection(0)}
-        panel.addView(key)
-        val keyHelp=TextView(this).apply{text="Match mode fills this with the estimated original key. Change mode treats this as the destination key.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,2,0,6)}
-        panel.addView(keyHelp)
-        mode.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{
-            override fun onNothingSelected(parent:AdapterView<*>?){}
-            override fun onItemSelected(parent:AdapterView<*>?,view:View?,position:Int,id:Long){
-                keyHelp.text=if(position==0)"Match mode uses the estimated original key and scale." else "Choose the destination key. The app estimates the original key and keeps its major/minor mode."
-                detected?.let{if(position==0){key.setSelection(it.key);scale.setSelection(it.scale)}}
-            }
-        }
-        addLabel("SCALE · NOTES THAT FIT THE SONG")
-        panel.addView(TextView(this).apply{text="ELI5: Major often feels brighter; Minor often feels moodier; Chromatic allows all 12 notes. Choose the scale that matches your song.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,2,0,6)})
-        val scales=listOf("Major","Minor","Chromatic")
-        val scale=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,scales);setSelection(0)}
-        panel.addView(scale)
         val descriptions=listOf(
             "Balanced tone with gentle pitch correction.",
             "Bright top end, a little warmth, light room reverb, and lively dynamics.",
