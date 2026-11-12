@@ -34,3 +34,7 @@ The GitHub Actions workflow builds a signed release APK when the repository sign
 ## YouTube player removal (0.5.1)
 
 The embedded YouTube player and backing-track link controls have been removed from the Android app. Song lyrics and audio recording/playback remain available. Existing saved song entries with an old YouTube URL are still readable; the app no longer displays or uses those links.
+
+## Lyrics auto-scroll (0.5.3)
+
+When Start Performance is pressed, the lyric screen begins a gentle, steady downward scroll automatically. It no longer depends on speech recognition to highlight or move between lines, so the singer does not need to match the words to the microphone recognition. Scrolling stops when the performance stops or the lyric page closes. The scroll speed is a fixed gentle pace and is not yet synchronized to the song's tempo.
