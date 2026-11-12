@@ -38,3 +38,11 @@ The embedded YouTube player and backing-track link controls have been removed fr
 ## Lyrics auto-scroll (0.5.3)
 
 When Start Performance is pressed, the lyric screen begins a gentle, steady downward scroll automatically. It no longer depends on speech recognition to highlight or move between lines, so the singer does not need to match the words to the microphone recognition. Scrolling stops when the performance stops or the lyric page closes. The scroll speed is a fixed gentle pace and is not yet synchronized to the song's tempo.
+
+
+## Saved song titles and Auto-Tune guidance (0.5.5)
+
+- Each saved song has a **Rename** action in the library. Renaming changes only the song title; lyrics and recordings are left untouched. Duplicate titles are prevented.
+- Auto-Tune labels explain **Key** as the song's home note and **Scale** as the family of notes that fit the song.
+- Major often sounds brighter, Minor often sounds moodier, and Chromatic allows all 12 notes. These are simple starting explanations, not a substitute for identifying the actual key and scale.
+- Auto-Tune remains experimental and processes the complete voice-and-guitar recording.
