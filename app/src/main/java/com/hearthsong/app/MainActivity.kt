@@ -710,7 +710,6 @@ class MainActivity : Activity() {
         playbackActions.addView(playbackButton,LinearLayout.LayoutParams(0,-2,1f))
         playbackActions.addView(button("Stop"){player?.stop();player?.release();player=null;playingFile=null;handler.removeCallbacks(playbackTick);popupPlaybackSeek?.progress=0;popupPlaybackSeek?.isEnabled=false;popupPlaybackTime?.text="00:00 / 00:00";popupPlaybackButton?.text="▶ Play recording"},LinearLayout.LayoutParams(0,-2,1f))
         playbackPanel.addView(playbackActions)
-        if(performanceMode)shell.addView(playbackPanel)
         if(takes.isEmpty()) playbackPanel.alpha=0.85f
         val controls=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
         val performanceControl=button(popupRecordingLabel){if(modelLoading)toast("Preparing offline voice recognition…") else if(performanceFinalizing)toast("Saving the previous recording…") else if(recordingActive)stopPerformance() else startPerformance()}
