@@ -257,21 +257,47 @@ class MainActivity : Activity() {
         if(!::library.isInitialized)return
         library.removeAllViews()
         val songs=JSONArray(prefs.getString("songs","[]"))
-        for(i in 0 until songs.length()){
-            val song=songs.getJSONObject(i)
-            val songTitle=song.optString("title")
-            val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
-            row.addView(button("Edit: "+songTitle){titleBox.setText(songTitle);lyricsBox.setText(song.optString("lyrics"));editingSongTitle=songTitle;showPage(false);toast("Edit your lyrics, then tap Save song.")},LinearLayout.LayoutParams(0,-2,2f))
-            row.addView(button("Rename"){renameSong(i,songTitle)},LinearLayout.LayoutParams(0,-2,1f))
-            row.addView(button("Delete"){AlertDialog.Builder(this@MainActivity).setTitle("Delete song?").setMessage("Delete this song and its lyrics?").setNegativeButton("Cancel",null).setPositiveButton("Delete"){_,_->deleteSong(songTitle)}.show()},LinearLayout.LayoutParams(0,-2,1f))
-            library.addView(row)
+        val songTitles=(0 until songs.length()).map{songs.getJSONObject(it).optString("title")}
+        library.addView(TextView(this).apply{
+            text="MY LYRICS";textSize=14f;setTypeface(null,Typeface.BOLD);setTextColor(teal);setPadding(2,12,2,2)
+        })
+        val songPicker=Spinner(this)
+        val songOptions=if(songTitles.isEmpty()) listOf("No saved lyrics yet") else songTitles
+        songPicker.adapter=android.widget.ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,songOptions)
+        library.addView(songPicker,LinearLayout.LayoutParams(-1,-2))
+        val songActions=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
+        songActions.addView(button("Edit"){ 
+            val index=songPicker.selectedItemPosition
+            if(index in 0 until songs.length()){
+                val song=songs.getJSONObject(index);val title=song.optString("title")
+                titleBox.setText(title);lyricsBox.setText(song.optString("lyrics"));editingSongTitle=title
+                showPage(false);toast("Edit your lyrics, then tap Save song.")
+            }else toast("Save a song first.")
+        },LinearLayout.LayoutParams(0,-2,1f))
+        songActions.addView(button("Rename"){
+            val index=songPicker.selectedItemPosition
+            if(index in 0 until songs.length())renameSong(index,songs.getJSONObject(index).optString("title")) else toast("Save a song first.")
+        },LinearLayout.LayoutParams(0,-2,1f))
+        songActions.addView(button("Delete"){
+            val index=songPicker.selectedItemPosition
+            if(index in 0 until songs.length()){
+                val title=songs.getJSONObject(index).optString("title")
+                AlertDialog.Builder(this@MainActivity).setTitle("Delete song?").setMessage("Delete this song and its lyrics?").setNegativeButton("Cancel",null).setPositiveButton("Delete"){_,_->deleteSong(title)}.show()
+            }else toast("Save a song first.")
+        },LinearLayout.LayoutParams(0,-2,1f))
+        library.addView(songActions)
+
+        val takes=filesDir.listFiles()?.filter{it.name.startsWith("take_")&&it.extension in setOf("m4a","wav")}?.sortedByDescending{it.lastModified()}?: emptyList()
+        library.addView(TextView(this).apply{text="RECORDED AUDIO · "+takes.size;textSize=14f;setTypeface(null,Typeface.BOLD);setTextColor(teal);setPadding(2,16,2,6)})
+        val recordingBox=LinearLayout(this).apply{
+            orientation=LinearLayout.VERTICAL
+            setPadding(8,8,8,8)
+            setBackgroundColor(Color.rgb(240,249,247))
         }
-        val takes=filesDir.listFiles()?.filter{it.name.startsWith("take_")&&it.extension in setOf("m4a","wav")}?: emptyList()
-        library.addView(TextView(this).apply{text="Saved recordings: "+takes.size; textSize=12f; setTextColor(Color.GRAY);setPadding(0,12,0,4)})
         if(player!=null && playingFile!=null) {
-            val playerPanel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(12,8,12,12);setBackgroundColor(Color.rgb(240,249,247))}
+            val playerPanel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(8,6,8,10)}
             playerPanel.addView(TextView(this).apply{text="NOW PLAYING";textSize=11f;setTextColor(teal)})
-            playerPanel.addView(TextView(this).apply{text=java.io.File(playingFile!!).name;textSize=15f;setTextColor(Color.DKGRAY)})
+            playerPanel.addView(TextView(this).apply{text=java.io.File(playingFile!!).name;textSize=14f;setTextColor(Color.DKGRAY)})
             val seek=SeekBar(this).apply{max=player?.duration?.coerceAtLeast(1)?:1;progress=player?.currentPosition?:0}
             playbackSeek=seek
             seek.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
@@ -287,18 +313,33 @@ class MainActivity : Activity() {
             actions.addView(button(if(player?.isPlaying==true)"Ⅱ Pause" else "▶ Resume"){if(player?.isPlaying==true)player?.pause() else player?.start();renderLibrary();handler.removeCallbacks(playbackTick);handler.post(playbackTick)},LinearLayout.LayoutParams(0,-2,1f))
             actions.addView(button("Stop"){player?.release();player=null;playingFile=null;playbackSeek=null;playbackTime=null;handler.removeCallbacks(playbackTick);renderLibrary()},LinearLayout.LayoutParams(0,-2,1f))
             playerPanel.addView(actions)
-            library.addView(playerPanel)
+            recordingBox.addView(playerPanel)
             handler.removeCallbacks(playbackTick);handler.post(playbackTick)
         } else { playbackSeek=null;playbackTime=null;handler.removeCallbacks(playbackTick) }
-        takes.sortedByDescending{it.lastModified()}.forEach{file->
-            val takeDate=TextView(this).apply{text=recordingDateLabel(file);textSize=12f;setTextColor(Color.GRAY);setPadding(4,6,4,0)}
-            library.addView(takeDate)
+
+        val recordingList=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
+        if(takes.isEmpty()) recordingList.addView(TextView(this).apply{text="No recordings yet.";textSize=13f;setTextColor(Color.GRAY);setPadding(6,12,6,12)})
+        takes.forEachIndexed{index,file->
+            val item=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(4,6,4,8)}
+            item.addView(TextView(this).apply{text=(index+1).toString()+".  "+recordingDateLabel(file).removePrefix("Recorded: ");textSize=12f;setTextColor(Color.GRAY)})
             val takeRow=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
-            takeRow.addView(button(if(playingFile==file.absolutePath && player?.isPlaying==true) "Ⅱ  "+file.name else "▶  "+file.name){playTake(file)},LinearLayout.LayoutParams(0,-2,2.2f))
-            takeRow.addView(button("Auto-Tune"){showAutoTuneSettings(file)},LinearLayout.LayoutParams(0,-2,1.5f))
+            takeRow.addView(button(if(playingFile==file.absolutePath && player?.isPlaying==true)"Ⅱ Play" else "▶ Play"){playTake(file)},LinearLayout.LayoutParams(0,-2,1f))
+            takeRow.addView(button("Auto-Tune"){showAutoTuneSettings(file)},LinearLayout.LayoutParams(0,-2,1f))
             takeRow.addView(button("Delete"){AlertDialog.Builder(this@MainActivity).setTitle("Delete recording?").setMessage("Permanently delete this saved take? This cannot be undone.").setNegativeButton("Cancel",null).setPositiveButton("Delete"){_,_->deleteTake(file)}.show()},LinearLayout.LayoutParams(0,-2,1f))
-            library.addView(takeRow)
+            item.addView(takeRow)
+            item.addView(TextView(this).apply{text=file.name;textSize=10f;setTextColor(Color.DKGRAY);setPadding(4,0,4,0)})
+            recordingList.addView(item)
+            if(index< takes.lastIndex) recordingList.addView(View(this).apply{setBackgroundColor(Color.rgb(215,229,226));layoutParams=LinearLayout.LayoutParams(-1,1)})
         }
+        val recordingScroll=ScrollView(this).apply{
+            isVerticalScrollBarEnabled=true
+            isFillViewport=true
+            isNestedScrollingEnabled=true
+            addView(recordingList,android.widget.FrameLayout.LayoutParams(-1,-2))
+        }
+        val scrollHeight=(260*resources.displayMetrics.density).toInt()
+        recordingBox.addView(recordingScroll,LinearLayout.LayoutParams(-1,scrollHeight))
+        library.addView(recordingBox,LinearLayout.LayoutParams(-1,-2))
     }
 
     private fun showAutoTuneSettings(source: File) {
