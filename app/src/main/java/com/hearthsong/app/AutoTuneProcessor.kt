@@ -11,7 +11,10 @@ internal object AutoTuneProcessor {
         val trebleDb: Double = 0.0,
         val reverb: Double = 0.0,
         val compression: Double = 0.0,
-        val formantColor: Double = 0.0
+        val formantColor: Double = 0.0,
+        val presenceDb: Double = 0.0,
+        val deEss: Double = 0.0,
+        val saturation: Double = 0.0
     )
 
     data class KeyEstimate(val key: Int, val scale: Int, val confidence: Double, val noteCount: Int)
@@ -59,7 +62,7 @@ internal object AutoTuneProcessor {
             for(i in 0 until n){val lo=raf.readUnsignedByte();val hi=raf.readUnsignedByte();samples[i]=((hi shl 8) or lo).toShort()}
             val shifted=if(transposeSemitones!=0)transposeWithSpeedChange(samples,transposeSemitones)else samples
             val (pitched,sections)=correct(shifted,rate,key,scale,strength)
-            val processed=applyTone(pitched,rate,tone)
+            val processed=EmotionVocalEngine.process(pitched,rate,tone)
             writeWav(output,processed,rate)
             return sections
         }
