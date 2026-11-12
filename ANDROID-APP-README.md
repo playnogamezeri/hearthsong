@@ -84,3 +84,11 @@ When Start Performance is pressed, the lyric screen begins a gentle, steady down
 - The de-esser is a lightweight high-frequency detector and dynamic attenuation stage, not a dedicated multiband vocal processor. The reverb is algorithmic, not convolution or a modeled studio room. Pitch correction remains the existing experimental frame-based algorithm.
 - All processing is offline and on-device. The original WAV take remains untouched; a new processed copy is created.
 - “Emotion Vocal Engine 2.0” describes the DSP upgrade, not a claim of perfect emotional expression, professional mastering, or guaranteed results. Listening tests on the target phone and varied voice/guitar recordings are still required.
+
+
+## Simplified Auto-Tune experience (0.6.1)
+
+- The Auto-Tune screen now asks only for an emotional vocal style.
+- Key and scale analysis runs automatically in the background; users no longer need to understand or select musical keys/scales or manually press Analyze.
+- If the key/scale estimate has low confidence, pitch correction uses chromatic mode rather than forcing a potentially incorrect major/minor scale.
+- The app creates a new processed WAV copy and keeps the original take unchanged.
