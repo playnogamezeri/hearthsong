@@ -360,7 +360,7 @@ class MainActivity : Activity() {
                     try{
                         var output=File(filesDir,source.nameWithoutExtension+"_"+styleName.lowercase().replace(Regex("[^a-z0-9]+"),"_")+".wav")
                         var suffix=2
-                        while(output.exists()){output=File(filesDir,source.nameWithoutExtension+"_"+styleName.lowercase().replace(Regex("[^a-z0-9]+"),"_")+"_ $suffix.wav");suffix++}
+                        while(output.exists()){output=File(filesDir,source.nameWithoutExtension+"_"+styleName.lowercase().replace(Regex("[^a-z0-9]+"),"_")+"_"+suffix+".wav");suffix++}
                         val corrected=AutoTuneProcessor.process(source,output,selectedKey,selectedScale,amount,tone)
                         runOnUiThread{
                             dialog.dismiss()
