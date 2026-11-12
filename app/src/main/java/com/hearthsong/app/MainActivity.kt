@@ -354,7 +354,7 @@ class MainActivity : Activity() {
             override fun onNothingSelected(parent:AdapterView<*>?){}
             override fun onItemSelected(parent:AdapterView<*>?,view:View?,position:Int,id:Long){explanation.text=descriptions[position]}
         }
-        panel.addView(TextView(this).apply{text="Key detection listens to the complete voice-and-guitar mix, so chords and noise can affect its estimate. Transposition changes pitch and playback speed together in this first version. Effects also process the full mix. Your original recording is never overwritten.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,10,0,8)})
+        panel.addView(TextView(this).apply{text="Key detection listens to the complete voice-and-guitar mix, so chords and noise can affect its estimate. Key changes now use waveform-aligned time stretching to preserve the recording duration and tempo while shifting pitch; dense chords and large shifts may still create artifacts. Effects also process the full mix. Your original recording is never overwritten.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,10,0,8)})
         val dialog=AlertDialog.Builder(this).setView(panel).setNegativeButton("Cancel",null).setPositiveButton("Create emotional copy",null).create()
         dialog.setOnShowListener{
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
