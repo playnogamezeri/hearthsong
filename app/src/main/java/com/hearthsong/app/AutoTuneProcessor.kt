@@ -41,7 +41,7 @@ internal object AutoTuneProcessor {
         val confidence=if(best>0)((best-second).coerceAtLeast(0.0)/best).coerceIn(0.0,1.0)else 0.0
         return KeyEstimate(bestKey,bestScale,confidence,valid)
     }
-    fun process(input: File, output: File, key: Int, scale: Int, strength: Double, tone: ToneSettings, transposeSemitones: Int = 0): Int {
+    fun process(input: File, output: File, key: Int, scale: Int, strength: Double, tone: ToneSettings, transposeSemitones: Int = 0, finish: VocalPitchEngine.Finish = VocalPitchEngine.Finish.NATURAL): Int {
         RandomAccessFile(input, "r").use { raf ->
             if (raf.length() < 44 || readAscii(raf,0,4)!="RIFF" || readAscii(raf,8,4)!="WAVE") error("Only standard WAV recordings are supported.")
             var offset=12L; var dataOffset=-1L; var dataSize=0L
@@ -61,44 +61,11 @@ internal object AutoTuneProcessor {
             val samples=ShortArray(n);raf.seek(dataOffset)
             for(i in 0 until n){val lo=raf.readUnsignedByte();val hi=raf.readUnsignedByte();samples[i]=((hi shl 8) or lo).toShort()}
             val shifted=if(transposeSemitones!=0)transposeWithSpeedChange(samples,transposeSemitones)else samples
-            val (pitched,sections)=correct(shifted,rate,key,scale,strength)
-            val processed=EmotionVocalEngine.process(pitched,rate,tone)
+            val correction = VocalPitchEngine.correct(shifted, rate, key, scale, strength, finish)
+            val processed=EmotionVocalEngine.process(correction.samples,rate,tone)
             writeWav(output,processed,rate)
-            return sections
+            return correction.correctedFrames
         }
-    }
-
-    private fun correct(input:ShortArray,rate:Int,key:Int,scale:Int,strength:Double):Pair<ShortArray,Int>{
-        if(strength<=0.0)return input to 0
-        val frame=2048;val hop=1024;val half=frame/2
-        val output=DoubleArray(input.size);val weights=DoubleArray(input.size)
-        val notes=when(scale){0->intArrayOf(0,2,4,5,7,9,11);1->intArrayOf(0,2,3,5,7,8,10);else->IntArray(12){it}}
-        var corrected=0;var center=0
-        while(center<input.size){
-            val source=ShortArray(frame);var energy=0.0
-            for(j in 0 until frame){val idx=(center-half+j).coerceIn(0,input.lastIndex);source[j]=input[idx];energy+=source[j].toDouble()*source[j]}
-            val hz=if(sqrt(energy/frame)>180.0)estimate(source,rate)else 0.0
-            var ratio=1.0
-            if(hz>0){
-                val midi=69.0+12.0*ln(hz/440.0)/ln(2.0)
-                val target=nearest(midi,key,notes)
-                val semitones=(target-midi).coerceIn(-1.0,1.0)*strength
-                if(abs(semitones)>0.025){ratio=2.0.pow(semitones/12.0);corrected++}
-            }
-            for(j in 0 until frame){
-                val outIndex=center-half+j
-                if(outIndex !in input.indices)continue
-                val pos=(half+(j-half)*ratio).coerceIn(0.0,(frame-1).toDouble())
-                val left=floor(pos).toInt();val right=(left+1).coerceAtMost(frame-1);val frac=pos-left
-                val sample=source[left]*(1-frac)+source[right]*frac
-                val win=0.5-0.5*cos(2.0*Math.PI*j/(frame-1))
-                output[outIndex]+=sample*win;weights[outIndex]+=win
-            }
-            center+=hop
-        }
-        val result=ShortArray(input.size)
-        for(i in input.indices){val v=if(weights[i]>1e-8)output[i]/weights[i] else input[i].toDouble();result[i]=v.roundToInt().coerceIn(-32768,32767).toShort()}
-        return result to corrected
     }
 
     /**
