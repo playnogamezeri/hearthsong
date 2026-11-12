@@ -397,7 +397,10 @@ class MainActivity : Activity() {
                     trebleDb=(v[1]-50)*0.12,
                     reverb=v[2].toDouble(),
                     compression=v[3].toDouble(),
-                    formantColor=v[4].toDouble()
+                    formantColor=v[4].toDouble(),
+                    presenceDb=when(selectedStyle){1,6,7,10->2.5;2,5->1.2;3,4,9->-1.0;else->0.0},
+                    deEss=when(selectedStyle){1,6,10->0.45;2,5,7->0.65;else->0.35},
+                    saturation=when(selectedStyle){4,6,11->0.18;7,10->0.10;else->0.04}
                 )
                 thread(name="JacksRePOAutoTune"){
                     try{
