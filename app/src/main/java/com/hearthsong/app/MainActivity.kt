@@ -125,8 +125,8 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-        val page = ScrollView(this).apply { isFillViewport=true; isVerticalScrollBarEnabled=true }
-        val root = LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(16,18,16,20); setBackgroundColor(Color.WHITE) }
+        val page = ScrollView(this).apply { isFillViewport=true; isVerticalScrollBarEnabled=true; clipToPadding=false; isNestedScrollingEnabled=true }
+        val root = LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(16,18,16,96); setBackgroundColor(Color.WHITE) }
         page.addView(root)
         root.addView(TextView(this).apply { text="♫ Jack's RePO"; textSize=28f; setTypeface(null,Typeface.BOLD); setTextColor(teal); setPadding(2,4,2,2) })
         root.addView(TextView(this).apply { text="YOUR PRIVATE SONGWRITING & PERFORMANCE STUDIO"; textSize=10f; letterSpacing=.12f; setTextColor(Color.GRAY); setPadding(2,0,2,14) })
@@ -152,7 +152,7 @@ class MainActivity : Activity() {
         root.addView(homePage);root.addView(editorPage);root.addView(libraryPage)
         titleBox=EditText(this).apply { hint="Song title"; setSingleLine(true) }; editorPage.addView(titleBox)
         lyricsBox=EditText(this).apply { hint="Write your original lyrics here…"; minLines=5; gravity=android.view.Gravity.TOP; textSize=17f }
-        editorPage.addView(lyricsBox,LinearLayout.LayoutParams(-1,220))
+        editorPage.addView(lyricsBox,LinearLayout.LayoutParams(-1,440))
         lyricsBox.isVerticalScrollBarEnabled=true
         lyricsBox.setPadding(12,12,12,12)
         editorPage.addView(button("Save song"){ saveSong(); toast("Saved on this phone.") })
