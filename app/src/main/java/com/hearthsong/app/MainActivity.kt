@@ -54,6 +54,7 @@ class MainActivity : Activity() {
     private lateinit var editorPage: LinearLayout
     private lateinit var libraryPage: LinearLayout
     private lateinit var homePage: LinearLayout
+    private lateinit var homeDateView: TextView
     private var player: MediaPlayer? = null
     private var playingFile: String? = null
     private var playbackSeek: SeekBar? = null
@@ -129,7 +130,9 @@ class MainActivity : Activity() {
         page.addView(root)
         root.addView(TextView(this).apply { text="♫ Jack's RePO"; textSize=28f; setTypeface(null,Typeface.BOLD); setTextColor(teal); setPadding(2,4,2,2) })
         root.addView(TextView(this).apply { text="YOUR PRIVATE SONGWRITING & PERFORMANCE STUDIO"; textSize=10f; letterSpacing=.12f; setTextColor(Color.GRAY); setPadding(2,0,2,14) })
+        homeDateView=TextView(this).apply{text=currentDateLabel();textSize=14f;setTextColor(teal);setTypeface(null,Typeface.BOLD);setPadding(2,10,2,2)}
         homePage=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
+        homePage.addView(homeDateView)
         homePage.addView(TextView(this).apply{text="What would you like to do today?";textSize=21f;setTypeface(null,Typeface.BOLD);setTextColor(Color.rgb(27,52,49));setPadding(2,18,2,8)})
         homePage.addView(TextView(this).apply{text="Choose a simple starting point. Your songs and recordings stay on this phone.";textSize=14f;setTextColor(Color.DKGRAY);setPadding(2,0,2,14)})
         fun addHomeChoice(title:String,description:String,action:()->Unit){
@@ -287,6 +290,8 @@ class MainActivity : Activity() {
             handler.removeCallbacks(playbackTick);handler.post(playbackTick)
         } else { playbackSeek=null;playbackTime=null;handler.removeCallbacks(playbackTick) }
         takes.sortedByDescending{it.lastModified()}.forEach{file->
+            val takeDate=TextView(this).apply{text=recordingDateLabel(file);textSize=12f;setTextColor(Color.GRAY);setPadding(4,6,4,0)}
+            library.addView(takeDate)
             val takeRow=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
             takeRow.addView(button(if(playingFile==file.absolutePath && player?.isPlaying==true) "Ⅱ  "+file.name else "▶  "+file.name){playTake(file)},LinearLayout.LayoutParams(0,-2,2.2f))
             takeRow.addView(button("Auto-Tune"){showAutoTuneSettings(file)},LinearLayout.LayoutParams(0,-2,1.5f))
@@ -603,6 +608,16 @@ class MainActivity : Activity() {
         val old=JSONArray(prefs.getString("songs","[]"));val kept=JSONArray()
         for(i in 0 until old.length())if(old.getJSONObject(i).optString("title")!=title)kept.put(old.getJSONObject(i))
         prefs.edit().putString("songs",kept.toString()).apply();renderLibrary();toast("Song deleted.")
+    }
+
+    private fun currentDateLabel():String = java.text.SimpleDateFormat("EEEE, MMMM d, yyyy", java.util.Locale.getDefault()).format(java.util.Date())
+
+    private fun recordingDateLabel(file:File):String {
+        // Recording filenames carry the capture-start epoch; tuned copies retain that timestamp.
+        val epoch=Regex("^take_(\\d+)").find(file.name)?.groupValues?.getOrNull(1)?.toLongOrNull()
+        val date=epoch?.let{java.util.Date(it)}
+        return if(date!=null) "Recorded: "+java.text.SimpleDateFormat("MMM d, yyyy · h:mm a", java.util.Locale.getDefault()).format(date)
+        else "Recording date unavailable"
     }
 
     private fun formatTime(milliseconds:Int):String {
