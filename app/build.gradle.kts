@@ -43,7 +43,7 @@ android {
         applicationId = "com.hearthsong.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 13
-        versionName = "0.5.8"
+        versionCode = 14
+        versionName = "0.5.9"
     }
 }
