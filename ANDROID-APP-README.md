@@ -65,3 +65,12 @@ When Start Performance is pressed, the lyric screen begins a gentle, steady down
 - Available styles: Natural, Cheerful, Romantic, Sad, Dark / Depressive, Sultry, Angry, Confident, Dreamy, Heartbroken, Dramatic, and Robotic.
 - Key and scale remain selectable because pitch correction needs the song's musical key and note family. These are separate from the emotional tone controls.
 - Each generated copy is named for its emotional style. The original take remains unchanged.
+
+
+## Recording key match and transposition (0.5.8)
+
+- **Match My Recording** estimates a key and major/minor mode from the recorded mono mix, then uses that estimate as the pitch-correction target.
+- **Change to a Different Key** estimates the source tonic, lets the user choose a destination tonic, and transposes the complete mix while retaining the estimated major/minor mode.
+- Key detection is experimental and analyzes the combined voice-and-guitar signal. Chords, accompaniment, noise, and strong harmonics can produce a wrong estimate; the app displays a confidence indicator and the result should be checked by listening.
+- Transposition currently uses resampling, so changing key also changes playback speed and duration. It is not yet a tempo-preserving pitch shifter.
+- Both modes create a new WAV copy and leave the original recording unchanged. All analysis and processing run on-device.
