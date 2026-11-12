@@ -194,6 +194,46 @@ class MainActivity : Activity() {
         prefs.edit().putString("songs",all.toString()).apply(); renderLibrary()
     }
 
+    private fun renameSong(index:Int,oldTitle:String) {
+        val songs=JSONArray(prefs.getString("songs","[]"))
+        if(index !in 0 until songs.length())return
+        val input=EditText(this).apply {
+            setSingleLine(true)
+            setText(oldTitle)
+            setSelection(text.length)
+            hint="New song title"
+        }
+        val dialog=AlertDialog.Builder(this)
+            .setTitle("Rename saved song")
+            .setMessage("This changes the song's title only. Your lyrics and recordings stay as they are.")
+            .setView(input)
+            .setNegativeButton("Cancel",null)
+            .setPositiveButton("Save name",null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val newTitle=input.text.toString().trim()
+                if(newTitle.isBlank()) {
+                    input.error="Enter a song title"
+                    return@setOnClickListener
+                }
+                for(i in 0 until songs.length()) {
+                    if(i!=index && songs.getJSONObject(i).optString("title").equals(newTitle,true)) {
+                        input.error="A song with that title already exists"
+                        return@setOnClickListener
+                    }
+                }
+                songs.getJSONObject(index).put("title",newTitle)
+                prefs.edit().putString("songs",songs.toString()).apply()
+                if(editingSongTitle==oldTitle)editingSongTitle=newTitle
+                renderLibrary()
+                dialog.dismiss()
+                toast("Song renamed.")
+            }
+        }
+        dialog.show()
+    }
+
     private fun renderLibrary() {
         if(!::library.isInitialized)return
         library.removeAllViews()
@@ -203,6 +243,7 @@ class MainActivity : Activity() {
             val songTitle=song.optString("title")
             val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
             row.addView(button("Edit: "+songTitle){titleBox.setText(songTitle);lyricsBox.setText(song.optString("lyrics"));editingSongTitle=songTitle;showPage(false);toast("Edit your lyrics, then tap Save song.")},LinearLayout.LayoutParams(0,-2,2f))
+            row.addView(button("Rename"){renameSong(i,songTitle)},LinearLayout.LayoutParams(0,-2,1f))
             row.addView(button("Delete"){AlertDialog.Builder(this@MainActivity).setTitle("Delete song?").setMessage("Delete this song and its lyrics?").setNegativeButton("Cancel",null).setPositiveButton("Delete"){_,_->deleteSong(songTitle)}.show()},LinearLayout.LayoutParams(0,-2,1f))
             library.addView(row)
         }
@@ -259,11 +300,13 @@ class MainActivity : Activity() {
         )
         val style=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,styles);setSelection(3)}
         panel.addView(style)
-        addLabel("KEY")
+        addLabel("KEY · SONG'S HOME NOTE")
+        panel.addView(TextView(this).apply{text="ELI5: The key is the song's musical home note. Choose the note that feels like the song's main resting point (for example, C or E). If you already know your guitar song's key, select it here.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,2,0,6)})
         val keys=listOf("C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B")
         val key=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,keys);setSelection(0)}
         panel.addView(key)
-        addLabel("SCALE")
+        addLabel("SCALE · NOTES THAT FIT THE SONG")
+        panel.addView(TextView(this).apply{text="ELI5: The scale is the song's note family. Major = often brighter; Minor = often moodier. Chromatic = allow all 12 notes, useful if the song uses notes outside one major or minor family. If unsure, start with Major or Minor based on the song's sound.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,2,0,6)})
         val scales=listOf("Major","Minor","Chromatic")
         val scale=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,scales);setSelection(0)}
         panel.addView(scale)
@@ -281,7 +324,7 @@ class MainActivity : Activity() {
             override fun onStartTrackingTouch(seekBar:SeekBar?){}
             override fun onStopTrackingTouch(seekBar:SeekBar?){}
         })
-        panel.addView(TextView(this).apply{text="These presets adjust pitch-correction strength only; they do not change vocal tone, EQ, reverb, or make a voice sound like a particular race or age. Choose the song's actual key and scale below. This experimental effect processes the complete recording, so guitar notes and chords may change too. Your original stays untouched.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,10,0,8)})
+        panel.addView(TextView(this).apply{text="These presets adjust pitch-correction strength only; they do not change vocal tone, EQ, reverb, or make a voice sound like a particular race or age. Choose the song's actual key and scale for the best chance of natural correction. This experimental effect processes the complete recording, so guitar notes and chords may change too. Your original stays untouched.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,10,0,8)})
         val dialog=AlertDialog.Builder(this).setView(panel).setNegativeButton("Cancel",null).setPositiveButton("Create tuned copy",null).create()
         dialog.setOnShowListener{
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
