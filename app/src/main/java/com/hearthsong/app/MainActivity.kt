@@ -61,6 +61,17 @@ class MainActivity : Activity() {
     private var popupPlaybackTime: TextView? = null
     private var popupPlaybackButton: Button? = null
     private var popupTakeSpinner: Spinner? = null
+    private val lyricAutoScrollTick = object : Runnable {
+        override fun run() {
+            val scroll = popupLyricScroll ?: return
+            if (!recordingActive) return
+            val maxScroll = (scroll.getChildAt(0)?.height ?: 0) - scroll.height
+            if (scroll.scrollY < maxScroll) {
+                scroll.scrollBy(0, dp(1).coerceAtLeast(1))
+                handler.postDelayed(this, 55)
+            }
+        }
+    }
     private val playbackTick = object : Runnable {
         override fun run() {
             val p=player
@@ -525,36 +536,18 @@ class MainActivity : Activity() {
         popupLyricText=display
         popupStatus=liveStatus
         popupTimer=liveTimer
-        dialog.setOnDismissListener{if(recordingActive)stopPerformance();popupLyricScroll=null;popupLyricText=null;popupStatus=null;popupTimer=null;popupPerformanceButton=null;popupPlaybackSeek=null;popupPlaybackTime=null;popupPlaybackButton=null;popupTakeSpinner=null}
+        dialog.setOnDismissListener{handler.removeCallbacks(lyricAutoScrollTick);if(recordingActive)stopPerformance();popupLyricScroll=null;popupLyricText=null;popupStatus=null;popupTimer=null;popupPerformanceButton=null;popupPlaybackSeek=null;popupPlaybackTime=null;popupPlaybackButton=null;popupTakeSpinner=null}
         renderActiveLyricLine(false)
     }
 
     private fun renderActiveLyricLine(animate:Boolean=true){
         val display=popupLyricText?:return
         val scroll=popupLyricScroll?:return
-        if(lyricLines.isEmpty())return
-        val full=lyricLines.joinToString("\n\n")
-        val span=SpannableString(full)
-        var offset=0
-        lyricLines.forEachIndexed{index,line->
-            if(index==currentLineIndex && line.isNotBlank()){
-                span.setSpan(BackgroundColorSpan(Color.rgb(220,244,239)),offset,offset+line.length,0)
-                span.setSpan(android.text.style.ForegroundColorSpan(Color.rgb(15,105,98)),offset,offset+line.length,0)
-                span.setSpan(android.text.style.StyleSpan(Typeface.BOLD),offset,offset+line.length,0)
-            }
-            offset+=line.length+2
-        }
-        display.text=span
-        display.post{
-            val layout=display.layout?:return@post
-            val start=lyricLines.take(currentLineIndex).sumOf{it.length+2}
-            val line=layout.getLineForOffset(start.coerceAtMost((display.text?.length?:1)-1))
-            val target=(layout.getLineTop(line)+display.paddingTop-scroll.height/2+layout.getLineBottom(line)/2).coerceAtLeast(0)
-            if(animate)ObjectAnimator.ofInt(scroll,"scrollY",scroll.scrollY,target).apply{duration=900;start()}
-            else scroll.scrollTo(0,target)
-        }
+        display.text=lyricLines.joinToString("\n\n")
+        scroll.post { scroll.scrollTo(0,0) }
     }
     private fun startPerformance(){
+
         if(recordingActive || performanceFinalizing || modelLoading)return
         if(lyricsBox.text.isBlank()){toast("Write or open a song before starting a performance.");return}
         if(popupLyricText==null)showLyrics()
@@ -657,6 +650,9 @@ class MainActivity : Activity() {
         popupStatus?.text=if(voskModel!=null)"Recording locally. Lyric matching runs on this same microphone audio." else if(modelLoading)"Recording locally. Preparing offline lyric matching in the background." else "Recording locally. Offline lyric matching is unavailable; audio recording will continue."
         status.text="Performance recording locally on this phone…"
         handler.removeCallbacks(timerTick);handler.post(timerTick)
+        handler.removeCallbacks(lyricAutoScrollTick)
+        popupLyricScroll?.scrollTo(0,0)
+        handler.postDelayed(lyricAutoScrollTick,700)
         performanceAudio=audio
         performanceThread=thread(name="JacksRePOAudioCapture"){
             var recognizer:Recognizer?=null
@@ -766,10 +762,8 @@ class MainActivity : Activity() {
             val adjusted=score*100-(index-currentLineIndex)*8
             if(score>=required && adjusted>bestScore){bestScore=adjusted;best=index}
         }
-        if(best>=currentLineIndex && bestScore>0){
-            currentLineIndex=best
-            runOnUiThread{renderActiveLyricLine(true);popupStatus?.text="Recording · following lyric line ${best+1}"}
-        }
+        // Lyric movement is now time-based auto-scroll; speech recognition no longer
+        // controls highlighting or scroll position, so singing freely won't fight the screen.
     }
 
     private var lastRecognizedPhrase=""
@@ -777,6 +771,7 @@ class MainActivity : Activity() {
     private fun stopPerformance(){
         if(!recordingActive)return
         recordingActive=false
+        handler.removeCallbacks(lyricAutoScrollTick)
         performanceFinalizing=true
         recognitionEnabled=false
         try{performanceAudio?.stop()}catch(_:Exception){}
