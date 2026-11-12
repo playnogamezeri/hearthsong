@@ -304,10 +304,81 @@ class MainActivity : Activity() {
         } else { playbackSeek=null;playbackTime=null;handler.removeCallbacks(playbackTick) }
         takes.sortedByDescending{it.lastModified()}.forEach{file->
             val takeRow=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
-            takeRow.addView(button(if(playingFile==file.absolutePath && player?.isPlaying==true) "Ⅱ  "+file.name else "▶  "+file.name){playTake(file)},LinearLayout.LayoutParams(0,-2,3f))
+            takeRow.addView(button(if(playingFile==file.absolutePath && player?.isPlaying==true) "Ⅱ  "+file.name else "▶  "+file.name){playTake(file)},LinearLayout.LayoutParams(0,-2,2.2f))
+            takeRow.addView(button("Auto-Tune"){showAutoTuneSettings(file)},LinearLayout.LayoutParams(0,-2,1.5f))
             takeRow.addView(button("Delete"){AlertDialog.Builder(this@MainActivity).setTitle("Delete recording?").setMessage("Permanently delete this saved take? This cannot be undone.").setNegativeButton("Cancel",null).setPositiveButton("Delete"){_,_->deleteTake(file)}.show()},LinearLayout.LayoutParams(0,-2,1f))
             library.addView(takeRow)
         }
+    }
+
+    private fun showAutoTuneSettings(source: File) {
+        if (source.extension.lowercase() != "wav") {
+            toast("Auto-Tune currently works with WAV recordings. Make a new performance recording first.")
+            return
+        }
+        val panel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(20,12,20,8);setBackgroundColor(Color.WHITE)}
+        panel.addView(TextView(this).apply{text="♫ Auto-Tune";textSize=22f;setTextColor(teal);setTypeface(null,Typeface.BOLD)})
+        panel.addView(TextView(this).apply{text="Choose a ready-made sound, then adjust how strongly the recording is corrected.";textSize=13f;setTextColor(Color.DKGRAY);setPadding(0,6,0,10)})
+        fun addLabel(value:String){panel.addView(TextView(this).apply{text=value;textSize=13f;setTextColor(Color.DKGRAY);setPadding(0,8,0,2)})}
+        addLabel("PRELOADED STYLE")
+        val styles=listOf("Natural","Strong","Robotic / T-Pain")
+        val style=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,styles);setSelection(0)}
+        panel.addView(style)
+        addLabel("KEY")
+        val keys=listOf("C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B")
+        val key=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,keys);setSelection(0)}
+        panel.addView(key)
+        addLabel("SCALE")
+        val scales=listOf("Major","Minor","Chromatic")
+        val scale=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,scales);setSelection(0)}
+        panel.addView(scale)
+        addLabel("CORRECTION STRENGTH")
+        val strength=SeekBar(this).apply{max=100;progress=45}
+        val strengthLabel=TextView(this).apply{text="45% · Natural";textSize=13f;setTextColor(teal)}
+        panel.addView(strength);panel.addView(strengthLabel)
+        fun preset(){val p=when(style.selectedItemPosition){0->45;1->78;else->100};strength.progress=p}
+        style.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{
+            override fun onNothingSelected(parent:AdapterView<*>?){}
+            override fun onItemSelected(parent:AdapterView<*>?,view:View?,position:Int,id:Long){preset()}
+        }
+        strength.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
+            override fun onProgressChanged(seekBar:SeekBar?,progress:Int,fromUser:Boolean){strengthLabel.text="$progress% · "+styles[style.selectedItemPosition]}
+            override fun onStartTrackingTouch(seekBar:SeekBar?){}
+            override fun onStopTrackingTouch(seekBar:SeekBar?){}
+        })
+        panel.addView(TextView(this).apply{text="This experimental effect processes the complete recording. Guitar notes and chords may change too. Your original stays untouched.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,10,0,8)})
+        val dialog=AlertDialog.Builder(this).setView(panel).setNegativeButton("Cancel",null).setPositiveButton("Create tuned copy",null).create()
+        dialog.setOnShowListener{
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
+                val amount=strength.progress/100.0
+                if(amount<=0.0){toast("Increase the correction strength first.");return@setOnClickListener}
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled=false
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).text="Processing…"
+                val selectedKey=key.selectedItemPosition
+                val selectedScale=scale.selectedItemPosition
+                val styleName=styles[style.selectedItemPosition]
+                thread(name="JacksRePOAutoTune"){
+                    try{
+                        var output=File(filesDir,source.nameWithoutExtension+"_tuned.wav")
+                        var suffix=2
+                        while(output.exists()){output=File(filesDir,source.nameWithoutExtension+"_tuned$suffix.wav");suffix++}
+                        val corrected=AutoTuneProcessor.process(source,output,selectedKey,selectedScale,amount)
+                        runOnUiThread{
+                            dialog.dismiss()
+                            renderLibrary()
+                            toast(if(corrected>0)"Tuned copy saved · $styleName · $corrected sections corrected." else "Tuned copy saved. Very little stable pitch was detected.")
+                        }
+                    }catch(e:Exception){
+                        runOnUiThread{
+                            dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled=true
+                            dialog.getButton(AlertDialog.BUTTON_POSITIVE).text="Create tuned copy"
+                            toast("Auto-Tune could not process this recording: "+(e.message?:"audio error"))
+                        }
+                    }
+                }
+            }
+        }
+        dialog.show()
     }
 
     private fun deleteTake(file:java.io.File){
