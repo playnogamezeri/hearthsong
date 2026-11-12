@@ -153,6 +153,7 @@ class MainActivity : Activity() {
         lyricsBox.isVerticalScrollBarEnabled=true
         lyricsBox.setPadding(12,12,12,12)
         editorPage.addView(button("Save song"){ saveSong(); toast("Saved on this phone.") })
+        editorPage.addView(button("Home"){homePage.visibility=View.VISIBLE;editorPage.visibility=View.GONE;libraryPage.visibility=View.GONE})
         editorPage.addView(button("New song"){editingSongTitle=null;titleBox.setText("");lyricsBox.setText("");titleBox.requestFocus();toast("Ready for a new song.")})
         editorPage.addView(button("Open lyric-following screen"){ showLyrics() })
         lyricScroll=ScrollView(this).apply { visibility=View.GONE; setBackgroundColor(Color.rgb(248,252,251)) }
@@ -167,6 +168,7 @@ class MainActivity : Activity() {
         editorPage.addView(row)
         editorPage.addView(button("Back to writing"){ lyricScroll.visibility=View.GONE; lyricsBox.visibility=View.VISIBLE })
         libraryPage.addView(TextView(this).apply { text="MY SONGS & TAKES"; textSize=18f; setTextColor(teal); setPadding(0,12,0,8) })
+        libraryPage.addView(button("Home"){homePage.visibility=View.VISIBLE;editorPage.visibility=View.GONE;libraryPage.visibility=View.GONE})
         libraryPage.addView(button("Create backup file"){createBackupPicker()})
         libraryPage.addView(button("Restore from backup file"){restoreBackupPicker()})
         libraryPage.addView(TextView(this).apply{text="Backups include your saved lyrics and audio recordings. Keep the backup somewhere safe.";textSize=12f;setTextColor(Color.GRAY);setPadding(4,2,4,10)})
