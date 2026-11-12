@@ -74,3 +74,13 @@ When Start Performance is pressed, the lyric screen begins a gentle, steady down
 - Key detection is experimental and analyzes the combined voice-and-guitar signal. Chords, accompaniment, noise, and strong harmonics can produce a wrong estimate; the app displays a confidence indicator and the result should be checked by listening.
 - Transposition resamples to shift pitch, then uses waveform-similarity overlap-add (WSOLA) time stretching to restore the original sample count and preserve the recording duration and tempo. This lightweight mono algorithm is experimental; dense guitar chords, strong transients, and larger shifts may create audible artifacts.
 - Both modes create a new WAV copy and leave the original recording unchanged. All analysis and processing run on-device.
+
+
+## Emotion Vocal Engine 2.0 (0.6.0)
+
+- Replaces the first-pass tone stage with a local offline DSP chain: low-frequency cleanup, tonal EQ, vocal-presence shaping, dynamic sibilance control, level compression with smoothed gain, gentle saturation, and a four-comb feedback reverb.
+- The 12 emotion presets automatically select their processing values. There are no manual effect sliders.
+- Processing is still applied to the complete mono voice-and-guitar mix. This is not source separation: guitar and other sounds can be affected by EQ, compression, saturation, and reverb. The app does not claim isolated vocal processing.
+- The de-esser is a lightweight high-frequency detector and dynamic attenuation stage, not a dedicated multiband vocal processor. The reverb is algorithmic, not convolution or a modeled studio room. Pitch correction remains the existing experimental frame-based algorithm.
+- All processing is offline and on-device. The original WAV take remains untouched; a new processed copy is created.
+- “Emotion Vocal Engine 2.0” describes the DSP upgrade, not a claim of perfect emotional expression, professional mastering, or guaranteed results. Listening tests on the target phone and varied voice/guitar recordings are still required.
