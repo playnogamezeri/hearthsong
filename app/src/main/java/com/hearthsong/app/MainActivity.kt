@@ -61,13 +61,15 @@ class MainActivity : Activity() {
     private var popupPlaybackTime: TextView? = null
     private var popupPlaybackButton: Button? = null
     private var popupTakeSpinner: Spinner? = null
+    private var lyricScrollSpeed = 2
     private val lyricAutoScrollTick = object : Runnable {
         override fun run() {
             val scroll = popupLyricScroll ?: return
             if (!recordingActive) return
             val maxScroll = (scroll.getChildAt(0)?.height ?: 0) - scroll.height
             if (scroll.scrollY < maxScroll) {
-                scroll.scrollBy(0, dp(1).coerceAtLeast(1))
+                val pixels = (resources.displayMetrics.density * lyricScrollSpeed).toInt().coerceAtLeast(1)
+                scroll.scrollBy(0, pixels)
                 handler.postDelayed(this, 55)
             }
         }
@@ -483,6 +485,23 @@ class MainActivity : Activity() {
         val shell=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(Color.rgb(250,252,251));setPadding(20,18,20,18)}
         val heading=TextView(this).apply{text=titleBox.text.toString().ifBlank{"Your song"};textSize=22f;setTypeface(null,Typeface.BOLD);setTextColor(Color.rgb(25,55,52));setPadding(4,10,4,14)}
         shell.addView(heading)
+        lyricScrollSpeed=prefs.getInt("lyric_scroll_speed",2).coerceIn(1,8)
+        val speedPanel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(4,2,4,8)}
+        val speedLabel=TextView(this).apply{text="LYRIC SCROLL SPEED · "+when(lyricScrollSpeed){1->"VERY SLOW";2->"SLOW";3->"GENTLE";4->"MEDIUM";5->"BRISK";6->"FAST";7->"FASTER";else->"VERY FAST"};textSize=12f;setTextColor(teal)}
+        speedPanel.addView(speedLabel)
+        val speedControl=SeekBar(this).apply{max=7;progress=lyricScrollSpeed-1}
+        speedControl.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
+            override fun onProgressChanged(seekBar:SeekBar?,progress:Int,fromUser:Boolean){
+                lyricScrollSpeed=progress+1
+                val names=listOf("VERY SLOW","SLOW","GENTLE","MEDIUM","BRISK","FAST","FASTER","VERY FAST")
+                speedLabel.text="LYRIC SCROLL SPEED · "+names[progress]
+                if(fromUser)prefs.edit().putInt("lyric_scroll_speed",lyricScrollSpeed).apply()
+            }
+            override fun onStartTrackingTouch(seekBar:SeekBar?){}
+            override fun onStopTrackingTouch(seekBar:SeekBar?){}
+        })
+        speedPanel.addView(speedControl)
+        shell.addView(speedPanel)
         val scroll=ScrollView(this).apply{isFillViewport=true;setBackgroundColor(Color.rgb(250,252,251));clipToPadding=false}
         val display=TextView(this).apply{textSize=26f;gravity=android.view.Gravity.CENTER;setTextColor(Color.rgb(145,158,155));setPadding(20,190,20,250);setLineSpacing(20f,1.08f);text=lyricLines.joinToString("\n\n")}
         scroll.addView(display,android.widget.FrameLayout.LayoutParams(-1,-2))
