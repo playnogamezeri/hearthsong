@@ -112,3 +112,13 @@ When Start Performance is pressed, the lyric screen begins a gentle, steady down
 - The recordings library includes a **Equalizer** action for WAV takes, with Pop, Hip-Hop, R&B, Rock, Country, EDM, Acoustic, and Emo presets.
 - Applying a genre preset creates a new processed WAV copy and preserves the original. Equalization is local/offline and affects the whole mono mix.
 - A successful Android build verifies compilation and packaging only; it does not establish real-time audio quality or performance on the Galaxy A17.
+
+
+## Live Auto-Tune engine refresh (0.8.1)
+
+- Adds a dedicated stateful live processing wrapper that carries a rolling 2,048-sample pre-roll between microphone blocks instead of restarting pitch analysis at every AudioRecord read.
+- Adds a live **Tune settings** panel with song key, Chromatic/Major/Natural minor scale, Natural/Polished/Robotic correction profiles, correction strength, and retune speed. Settings are stored locally on the phone.
+- Uses the same on-device YIN pitch tracker with a selectable hard-correction profile. The Vosk recognizer continues to receive the original uncorrected microphone samples.
+- The Auto-Tune switch remains independent of the recording control. Turning it off does not stop recording; turning it back on resumes processing with the current settings.
+- This remains experimental real-time mono-mix pitch processing, not a commercial studio-grade phase-vocoder or source-separated vocal processor. The microphone captures voice, guitar, and room sound together. A rolling analysis window reduces block-boundary resets but does not eliminate pitch-tracking errors, latency, or artifacts. Test short takes with headphones and keep original recordings.
+- Version 0.8.1 uses Android versionCode 19. A successful CI build confirms compilation and packaging only; actual audio quality and device stability must be evaluated on the Galaxy A17.
