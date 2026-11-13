@@ -10,6 +10,8 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.media.AudioFormat
 import android.media.AudioRecord
+import android.media.AudioTrack
+import android.media.AudioAttributes
 import android.media.MediaRecorder
 import android.media.MediaPlayer
 import android.os.Build
@@ -66,6 +68,10 @@ class MainActivity : Activity() {
     private var popupRecordingLabel = "▶ Start Performance"
     @Volatile private var liveAutoTuneEnabled = false
     private var popupAutoTuneButton: Button? = null
+    private var popupMonitorButton: Button? = null
+    @Volatile private var liveMonitorEnabled = false
+    @Volatile private var liveMonitorTrack: AudioTrack? = null
+    @Volatile private var karaokePresetIndex = 0
     private var liveTuneSettings = LiveAutoTuneEngine.Settings()
     private val liveTuneEngine = LiveAutoTuneEngine()
 
@@ -825,6 +831,16 @@ class MainActivity : Activity() {
         tuneControls.addView(tuneControl,LinearLayout.LayoutParams(0,-2,2f))
         tuneControls.addView(button("⚙ Tune settings"){showLiveAutoTuneSettings()},LinearLayout.LayoutParams(0,-2,1f))
         shell.addView(tuneControls,LinearLayout.LayoutParams(-1,-2))
+        val karaokeControls=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
+        val monitorControl=button("🎧 Monitor OFF"){
+            liveMonitorEnabled=!liveMonitorEnabled
+            if(liveMonitorEnabled){if(recordingActive)startLiveMonitor();popupMonitorButton?.text="🎧 Monitor ON";popupStatus?.text="Live monitoring enabled. Use headphones to prevent feedback."}
+            else{stopLiveMonitor();popupMonitorButton?.text="🎧 Monitor OFF";popupStatus?.text="Live monitoring off. Recording continues."}
+        }
+        popupMonitorButton=monitorControl
+        karaokeControls.addView(monitorControl,LinearLayout.LayoutParams(0,-2,1f))
+        karaokeControls.addView(button("🎤 Karaoke sound"){showKaraokeSettings()},LinearLayout.LayoutParams(0,-2,1f))
+        shell.addView(karaokeControls,LinearLayout.LayoutParams(-1,-2))
         val controls=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
         val performanceControl=button(popupRecordingLabel){if(modelLoading)toast("Preparing offline voice recognition…") else if(performanceFinalizing)toast("Saving the previous recording…") else if(recordingActive)stopPerformance() else startPerformance()}
         popupPerformanceButton=performanceControl
@@ -839,7 +855,7 @@ class MainActivity : Activity() {
         popupLyricText=display
         popupStatus=liveStatus
         popupTimer=liveTimer
-        dialog.setOnDismissListener{handler.removeCallbacks(lyricAutoScrollTick);if(recordingActive)stopPerformance();popupLyricScroll=null;popupLyricText=null;popupStatus=null;popupTimer=null;popupPerformanceButton=null;popupPlaybackSeek=null;popupPlaybackTime=null;popupPlaybackButton=null;popupTakeSpinner=null;popupAutoTuneButton=null;liveAutoTuneEnabled=false;liveTuneEngine.reset()}
+        dialog.setOnDismissListener{handler.removeCallbacks(lyricAutoScrollTick);if(recordingActive)stopPerformance();popupLyricScroll=null;popupLyricText=null;popupStatus=null;popupTimer=null;popupPerformanceButton=null;popupPlaybackSeek=null;popupPlaybackTime=null;popupPlaybackButton=null;popupTakeSpinner=null;popupAutoTuneButton=null;popupMonitorButton=null;liveAutoTuneEnabled=false;liveMonitorEnabled=false;stopLiveMonitor();liveTuneEngine.reset()}
         renderActiveLyricLine(false)
     }
 
@@ -961,6 +977,7 @@ class MainActivity : Activity() {
         popupLyricScroll?.scrollTo(0,0)
         handler.postDelayed(lyricAutoScrollTick,700)
         performanceAudio=audio
+        if(liveMonitorEnabled)startLiveMonitor()
         performanceThread=thread(name="JacksRePOAudioCapture"){
             var recognizer:Recognizer?=null
             var recognitionFailed=false
@@ -978,6 +995,7 @@ class MainActivity : Activity() {
                             val original=buffer.copyOf(count)
                             val recorded=if(liveAutoTuneEnabled)liveTuneEngine.process(original,16000) else original
                             output.write(recorded)
+                            if(liveMonitorEnabled){val monitor=liveMonitorTrack;if(monitor!=null)try{val filtered=KaraokeLiveProcessor.process(recorded,karaokePresetIndex);monitor.write(filtered,0,filtered.size,AudioTrack.WRITE_BLOCKING)}catch(_:Exception){runOnUiThread{popupStatus?.text="Live monitor unavailable; recording continues."}}}
                             if(recognitionEnabled && recognizer==null){
                                 val readyModel=voskModel
                                 if(readyModel!=null){
@@ -1061,6 +1079,35 @@ class MainActivity : Activity() {
         )
     }
 
+    private fun startLiveMonitor(){
+        if(liveMonitorTrack!=null)return
+        try{
+            val rate=16000
+            val minimum=AudioTrack.getMinBufferSize(rate,AudioFormat.CHANNEL_OUT_MONO,AudioFormat.ENCODING_PCM_16BIT)
+            if(minimum<=0)throw IllegalStateException("Audio output unavailable")
+            val track=AudioTrack.Builder()
+                .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
+                .setAudioFormat(AudioFormat.Builder().setSampleRate(rate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).setEncoding(AudioFormat.ENCODING_PCM_16BIT).build())
+                .setBufferSizeInBytes(maxOf(minimum*2,4096)).setTransferMode(AudioTrack.MODE_STREAM)
+                .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY).build()
+            if(track.state!=AudioTrack.STATE_INITIALIZED){track.release();throw IllegalStateException("Audio output could not initialize")}
+            track.play();liveMonitorTrack=track;KaraokeLiveProcessor.reset()
+        }catch(e:Exception){liveMonitorEnabled=false;popupMonitorButton?.text="🎧 Monitor OFF";popupStatus?.text="Live monitoring could not start. Recording remains available."}
+    }
+    private fun stopLiveMonitor(){val track=liveMonitorTrack;liveMonitorTrack=null;try{track?.pause();track?.flush();track?.stop()}catch(_:Exception){};try{track?.release()}catch(_:Exception){};KaraokeLiveProcessor.reset()}
+    private fun showKaraokeSettings(){
+        val names=listOf("Studio Vocal","Pop Karaoke","Ballad","Electronic / Robot")
+        val details=listOf("Clean and warm, with gentle leveling and light room ambience.","Bright, forward vocals with a little extra space.","Soft tone, smooth leveling and a longer gentle reverb.","More synthetic presence and a stronger tuned character.")
+        val selected=prefs.getInt("karaoke_preset",0).coerceIn(0,names.lastIndex)
+        val picker=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,names);setSelection(selected)}
+        val description=TextView(this).apply{text=details[selected];textSize=14f;setTextColor(teal);setPadding(2,12,2,8)}
+        picker.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{override fun onNothingSelected(parent:AdapterView<*>?){};override fun onItemSelected(parent:AdapterView<*>?,view:View?,position:Int,id:Long){description.text=details[position]}}
+        val panel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(22,8,22,4)}
+        panel.addView(TextView(this).apply{text="Choose the sound you want while singing. Effects are automatic; no manual audio controls are needed.";textSize=14f;setTextColor(Color.DKGRAY)})
+        panel.addView(picker);panel.addView(description)
+        panel.addView(TextView(this).apply{text="Live effects are a lightweight phone-friendly monitor chain, not a professional studio plugin. Headphones are recommended. The finished recording can still receive its separate studio treatment.";textSize=12f;setTextColor(Color.GRAY);setPadding(0,12,0,4)})
+        AlertDialog.Builder(this).setTitle("Karaoke Voice Filter").setView(panel).setNegativeButton("Cancel",null).setPositiveButton("Save sound"){_,_->karaokePresetIndex=picker.selectedItemPosition;prefs.edit().putInt("karaoke_preset",karaokePresetIndex).apply();KaraokeLiveProcessor.reset();toast(names[karaokePresetIndex]+" selected.")}.show()
+    }
     private fun showLiveAutoTuneSettings(){
         val selected=prefs.getInt("live_tune_emotion",0).coerceIn(0,voiceEmotionPresets.lastIndex)
         val picker=Spinner(this).apply{
@@ -1212,5 +1259,5 @@ class MainActivity : Activity() {
         if(::homeDateView.isInitialized)homeDateView.text=currentDateLabel()
     }
 
-    override fun onDestroy(){if(recordingActive)stopPerformance();try{performanceThread?.join(1200)}catch(_:InterruptedException){};stopPitchMonitor();player?.release();player=null;try{voskModel?.close()}catch(_:Exception){};super.onDestroy()}
+    override fun onDestroy(){liveMonitorEnabled=false;stopLiveMonitor();if(recordingActive)stopPerformance();try{performanceThread?.join(1200)}catch(_:InterruptedException){};stopPitchMonitor();player?.release();player=null;try{voskModel?.close()}catch(_:Exception){};super.onDestroy()}
 }
