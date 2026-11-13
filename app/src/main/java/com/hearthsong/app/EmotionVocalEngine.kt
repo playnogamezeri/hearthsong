@@ -29,12 +29,19 @@ internal object EmotionVocalEngine {
         saturate(x, settings.saturation.coerceIn(0.0, 0.35))
         reverb(x, sampleRate, settings.reverb.coerceIn(0.0, 100.0) / 100.0)
 
-        // Leave headroom and avoid hard clipping at the integer conversion boundary.
+        // Conservative automatic loudness balancing. Limit upward gain so quiet room
+        // noise is not exaggerated, then reserve peak headroom for playback safety.
         var peak = 0.0
-        for (v in x) peak = max(peak, abs(v))
-        val makeup = if (peak > 0.985) 0.985 / peak else 1.0
+        var sumSquares = 0.0
+        for (v in x) {
+            peak = max(peak, abs(v))
+            sumSquares += v * v
+        }
+        val rms = sqrt(sumSquares / x.size).coerceAtLeast(1e-6)
+        val targetGain = (0.12 / rms).coerceIn(0.85, 1.8)
+        val makeup = if (peak * targetGain > 0.95) 0.95 / peak else targetGain
         return ShortArray(x.size) { i ->
-            (x[i] * makeup).coerceIn(-0.985, 0.985).times(32767.0).roundToInt().toShort()
+            (x[i] * makeup).coerceIn(-0.95, 0.95).times(32767.0).roundToInt().toShort()
         }
     }
 
