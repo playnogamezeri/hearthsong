@@ -327,6 +327,7 @@ class MainActivity : Activity() {
             val takeRow=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
             takeRow.addView(button(if(playingFile==file.absolutePath && player?.isPlaying==true)"Ⅱ Play" else "▶ Play"){playTake(file)},LinearLayout.LayoutParams(0,-2,1f))
             takeRow.addView(button("Auto-Tune"){showAutoTuneSettings(file)},LinearLayout.LayoutParams(0,-2,1f))
+            takeRow.addView(button("Equalizer"){showEqualizerSettings(file)},LinearLayout.LayoutParams(0,-2,1f))
             takeRow.addView(button("Delete"){AlertDialog.Builder(this@MainActivity).setTitle("Delete recording?").setMessage("Permanently delete this saved take? This cannot be undone.").setNegativeButton("Cancel",null).setPositiveButton("Delete"){_,_->deleteTake(file)}.show()},LinearLayout.LayoutParams(0,-2,1f))
             item.addView(takeRow)
             item.addView(TextView(this).apply{text=file.name;textSize=10f;setTextColor(Color.DKGRAY);setPadding(4,0,4,0)})
@@ -342,6 +343,69 @@ class MainActivity : Activity() {
         val scrollHeight=(260*resources.displayMetrics.density).toInt()
         recordingBox.addView(recordingScroll,LinearLayout.LayoutParams(-1,scrollHeight))
         library.addView(recordingBox,LinearLayout.LayoutParams(-1,-2))
+    }
+
+    private fun showEqualizerSettings(source: File) {
+        if(source.extension.lowercase()!="wav"){
+            toast("Equalizer currently supports WAV recordings. Your original recording is unchanged.")
+            return
+        }
+        val genres=listOf("Pop","Hip-Hop","R&B","Rock","Country","EDM","Acoustic","Emo")
+        val picker=Spinner(this).apply{
+            adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,genres)
+        }
+        val panel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(20,12,20,8)}
+        panel.addView(TextView(this).apply{
+            text="Choose a genre sound. Equalizer creates a new copy and keeps your original recording."
+            textSize=14f;setTextColor(Color.DKGRAY);setPadding(0,0,0,10)
+        })
+        panel.addView(picker)
+        AlertDialog.Builder(this)
+            .setTitle("♫ Song Equalizer")
+            .setView(panel)
+            .setNegativeButton("Cancel",null)
+            .setPositiveButton("Apply",null)
+            .create().also{dialog->
+                dialog.setOnShowListener{
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
+                        val genre=genres[picker.selectedItemPosition]
+                        val slug=genre.lowercase().replace("-","")
+                        var output=File(filesDir,source.nameWithoutExtension+"_eq_"+slug+".wav")
+                        var suffix=2
+                        while(output.exists()){
+                            output=File(filesDir,source.nameWithoutExtension+"_eq_"+slug+"_"+suffix+".wav")
+                            suffix++
+                        }
+                        val tone=when(genre){
+                            "Pop"->AutoTuneProcessor.ToneSettings(bassDb=1.0,trebleDb=1.5,reverb=5.0,compression=22.0,presenceDb=2.0,deEss=0.18,saturation=0.025)
+                            "Hip-Hop"->AutoTuneProcessor.ToneSettings(bassDb=3.0,trebleDb=1.0,reverb=3.0,compression=38.0,presenceDb=2.5,deEss=0.12,saturation=0.08)
+                            "R&B"->AutoTuneProcessor.ToneSettings(bassDb=1.8,trebleDb=1.8,reverb=12.0,compression=28.0,presenceDb=1.8,deEss=0.25,saturation=0.025)
+                            "Rock"->AutoTuneProcessor.ToneSettings(bassDb=1.5,trebleDb=2.0,reverb=4.0,compression=35.0,presenceDb=2.8,deEss=0.12,saturation=0.09)
+                            "Country"->AutoTuneProcessor.ToneSettings(bassDb=0.5,trebleDb=2.0,reverb=10.0,compression=22.0,presenceDb=2.0,deEss=0.18,saturation=0.015)
+                            "EDM"->AutoTuneProcessor.ToneSettings(bassDb=3.5,trebleDb=2.5,reverb=8.0,compression=42.0,presenceDb=2.2,deEss=0.10,saturation=0.10)
+                            "Acoustic"->AutoTuneProcessor.ToneSettings(bassDb=-0.5,trebleDb=1.0,reverb=8.0,compression=16.0,presenceDb=1.4,deEss=0.15,saturation=0.0)
+                            else->AutoTuneProcessor.ToneSettings(bassDb=0.8,trebleDb=1.5,reverb=15.0,compression=26.0,presenceDb=2.2,deEss=0.25,saturation=0.035)
+                        }
+                        dialog.dismiss()
+                        toast("Applying "+genre+" EQ…")
+                        thread(name="JacksRePOEqualizer"){
+                            try{
+                                AutoTuneProcessor.process(source,output,0,2,0.0,tone)
+                                runOnUiThread{
+                                    if(output.exists()){
+                                        toast(genre+" EQ copy saved.")
+                                        renderLibrary()
+                                    }else toast("Equalizer could not save the new copy.")
+                                }
+                            }catch(e:Exception){
+                                output.delete()
+                                runOnUiThread{toast("Equalizer failed: "+(e.message?:"audio processing error"))}
+                            }
+                        }
+                    }
+                }
+                dialog.show()
+            }
     }
 
     private fun showAutoTuneSettings(source: File) {
