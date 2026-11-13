@@ -326,7 +326,6 @@ class MainActivity : Activity() {
             item.addView(TextView(this).apply{text=(index+1).toString()+".  "+recordingDateLabel(file).removePrefix("Recorded: ");textSize=12f;setTextColor(Color.GRAY)})
             val takeRow=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
             takeRow.addView(button(if(playingFile==file.absolutePath && player?.isPlaying==true)"Ⅱ Play" else "▶ Play"){playTake(file)},LinearLayout.LayoutParams(0,-2,1f))
-            takeRow.addView(button("Auto-Tune"){showAutoTuneSettings(file)},LinearLayout.LayoutParams(0,-2,1f))
             takeRow.addView(button("Equalizer"){showEqualizerSettings(file)},LinearLayout.LayoutParams(0,-2,1f))
             takeRow.addView(button("Delete"){AlertDialog.Builder(this@MainActivity).setTitle("Delete recording?").setMessage("Permanently delete this saved take? This cannot be undone.").setNegativeButton("Cancel",null).setPositiveButton("Delete"){_,_->deleteTake(file)}.show()},LinearLayout.LayoutParams(0,-2,1f))
             item.addView(takeRow)
