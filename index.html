@@ -15,7 +15,9 @@
 header{display:flex;align-items:center;gap:12px;padding:7px 0 22px}.logo{width:46px;height:46px;border:2px solid var(--teal);border-radius:15px;background:var(--soft);display:grid;place-items:center;color:var(--deep);font-size:25px}
 h1{font-size:22px;line-height:1.1;margin:0;letter-spacing:-.04em}.tag{font-size:10px;letter-spacing:.15em;color:var(--muted);text-transform:uppercase;margin-top:5px}
 .hero{padding:10px 0 18px}.hero h2{font-size:27px;letter-spacing:-.045em;line-height:1.15;margin:0 0 7px}.hero p{color:var(--muted);font-size:14px;margin:0}
-nav{display:flex;gap:8px;margin:12px 0 17px}nav button{flex:1;background:#fff;color:var(--muted);border:1px solid var(--line);padding:11px;border-radius:12px;font-weight:700}nav button.active{background:var(--soft);border-color:#a9d7d1;color:var(--deep)}
+nav{display:flex;gap:8px;margin:12px 0 17px}nav button{flex:1;background:#fff;color:var(--muted);border:1px solid var(--line);padding:11px;border-radius:12px;font-weight:700}
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.settings-grid>div{min-width:0}.settings-note{padding:11px;border-radius:11px;background:var(--soft);font-size:12px;color:var(--deep);margin-top:12px}.toggle-on{background:var(--deep)!important;color:#fff!important;border-color:var(--deep)!important}.range-value{font-variant-numeric:tabular-nums;color:var(--deep);font-weight:800}.settings-card select{width:100%;font:inherit;border:1px solid #cbdad8;border-radius:11px;padding:11px;background:#fff;color:var(--ink)}
+nav button.active{background:var(--soft);border-color:#a9d7d1;color:var(--deep)}
 .card{border:1px solid var(--line);border-radius:17px;padding:17px;margin:12px 0;background:#fff;box-shadow:0 5px 18px rgba(25,70,65,.045)}
 .eyebrow{font-size:10px;font-weight:800;letter-spacing:.16em;color:var(--deep);text-transform:uppercase;margin-bottom:9px}
 label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:12px 0 6px}
@@ -63,7 +65,7 @@ footer{text-align:center;color:#81908d;font-size:11px;padding:24px 0 5px}
 <div class="app">
 <header><div class="logo">♫</div><div><h1>Jack's RePO</h1><div class="tag">Your personal creative studio</div></div></header>
 <div class="hero"><h2>Your songs.<br>Your voice. Your space.</h2><p>Write something honest, record it, and keep every take.</p></div>
-<nav><button id="writeTab" class="active">✎ Write & Record</button><button id="libraryTab">♫ My Songs</button></nav>
+<nav><button id="writeTab" class="active">✎ Write & Record</button><button id="libraryTab">♫ My Songs</button><button id="settingsTab">⚙ Settings</button></nav><nav><button id="writeTab" class="active">✎ Write & Record</button><button id="libraryTab">♫ My Songs</button></nav>
 <main id="writePage">
 <section class="card">
  <div class="eyebrow">01 / Your song</div>
@@ -89,7 +91,9 @@ footer{text-align:center;color:#81908d;font-size:11px;padding:24px 0 5px}
 
 
 "></textarea>
- <button class="secondary full performance-launch" id="openPerformance">♫ Open lyric performance mode</button>
+ <div class="row" style="margin-top:10px"><button class="secondary" id="writeAutotune" aria-pressed="false">🎙 Auto-Tune: OFF</button><button class="secondary" id="openSettingsFromWrite">⚙ Auto-Tune settings</button></div>
+ <div class="status" id="writeTuneStatus" aria-live="polite">Auto-Tune is off. Turn it on before recording to tune the captured voice.</div>
+ <button class="secondary full performance-launch" id="openPerformance">♫ Open lyric performance mode</button> <button class="secondary full performance-launch" id="openPerformance">♫ Open lyric performance mode</button>
  <p class="muted">Performance mode keeps your lyrics large and readable. Manual scrolling is available; private on-device voice following is available in the Android app.</p>
  <label for="songNotes">Notes (optional)</label>
  <textarea id="songNotes" style="min-height:85px;font:14px/1.5 system-ui" placeholder="Ideas, melody notes, guitar chords, or anything you want to remember…"></textarea>
@@ -119,6 +123,7 @@ footer{text-align:center;color:#81908d;font-size:11px;padding:24px 0 5px}
  <div class="stage-controls">
   <label>Scroll speed <input id="scrollSpeed" type="range" min="0" max="36" step="1" value="10"><span id="scrollSpeedValue">10</span></label>
   <button class="secondary" id="scrollToggle">Start timed scroll</button>
+  <button class="secondary" id="stageAutotune" aria-pressed="false">🎙 Auto-Tune: OFF</button>  <button class="secondary" id="scrollToggle">Start timed scroll</button>
  </div>
  <div id="stageLyrics">Your lyrics will appear here.</div>
  <div class="stage-hint" id="stageHint">Web version: manual timed scrolling only. Voice-following stays on-device in the Android app.</div>
@@ -137,10 +142,35 @@ footer{text-align:center;color:#81908d;font-size:11px;padding:24px 0 5px}
  <div id="takeList"></div>
 </section>
 </main>
+<main id="settingsPage" hidden>
+<section class="card settings-card">
+ <div class="eyebrow">Studio preferences</div><h2 class="section-title">Auto-Tune settings</h2>
+ <p class="muted">Choose how your voice is corrected. These preferences are saved on this device and shared by the writing and performance screens.</p>
+ <label for="tuneMode">Tuning mode</label><select id="tuneMode"><option value="chromatic">Chromatic — nearest musical note</option><option value="key">Song key — stay in the selected scale</option></select>
+ <div id="keySettings" hidden><div class="settings-grid"><div><label for="tuneKey">Key</label><select id="tuneKey"><option>C</option><option>C#</option><option>D</option><option>D#</option><option>E</option><option>F</option><option>F#</option><option>G</option><option>G#</option><option>A</option><option>A#</option><option>B</option></select></div><div><label for="tuneScale">Scale</label><select id="tuneScale"><option value="major">Major</option><option value="minor">Natural minor</option></select></div></div></div>
+ <label for="tuneStyle">Correction style</label><select id="tuneStyle"><option value="natural">Natural — gentle correction</option><option value="strong">Strong — noticeable correction</option><option value="robotic">Robotic — hard correction</option></select>
+ <label for="tuneStrength">Correction strength <span class="range-value" id="tuneStrengthValue">70%</span></label><input id="tuneStrength" type="range" min="0" max="100" value="70">
+ <div class="settings-note">🎧 Headphones are recommended. The phone microphone records everything it hears, so instruments picked up alongside your voice may also be affected. Auto-Tune is applied to the recording only while its switch is ON.</div>
+ <div class="status" id="settingsStatus" aria-live="polite">Settings save automatically.</div><button class="secondary full" id="settingsBack">← Back to writing</button>
+</section>
+</main>
+<footer>Jack's RePO</main>
 <footer>Jack's RePO · made for the things only you can create.</footer>
 </div>
 <script>
 const $=id=>document.getElementById(id);
+let db=null,currentSongId=null,recorder=null,stream=null,chunks=[],pendingBlob=null,pendingType='audio/webm',startedAt=0,timerHandle=null;
+let tuneEnabled=false,tuneSettings={mode:'chromatic',key:'C',scale:'major',style:'natural',strength:70},audioContext=null,tuneNode=null,tuneDestination=null,tuneModuleReady=null;
+const TUNE_STORAGE='jacks-repo-autotune-v1';
+function loadTuneSettings(){try{tuneSettings={...tuneSettings,...JSON.parse(localStorage.getItem(TUNE_STORAGE)||'{}')}}catch(e){}$('tuneMode').value=tuneSettings.mode;$('tuneKey').value=tuneSettings.key;$('tuneScale').value=tuneSettings.scale;$('tuneStyle').value=tuneSettings.style;$('tuneStrength').value=tuneSettings.strength;$('tuneStrengthValue').textContent=tuneSettings.strength+'%';$('keySettings').hidden=tuneSettings.mode!=='key'}
+function saveTuneSettings(){tuneSettings={mode:$('tuneMode').value,key:$('tuneKey').value,scale:$('tuneScale').value,style:$('tuneStyle').value,strength:Number($('tuneStrength').value)};localStorage.setItem(TUNE_STORAGE,JSON.stringify(tuneSettings));$('tuneStrengthValue').textContent=tuneSettings.strength+'%';$('keySettings').hidden=tuneSettings.mode!=='key';if(tuneNode)tuneNode.port.postMessage({type:'settings',settings:tuneSettings});$('settingsStatus').textContent='Auto-Tune preferences saved on this device.'}
+function renderTuneButtons(){for(const id of ['writeAutotune','stageAutotune']){const b=$(id);b.textContent='🎙 Auto-Tune: '+(tuneEnabled?'ON':'OFF');b.classList.toggle('toggle-on',tuneEnabled);b.setAttribute('aria-pressed',String(tuneEnabled))}$('writeTuneStatus').textContent=tuneEnabled?'Auto-Tune is ON. New recordings will capture the corrected signal.':'Auto-Tune is OFF. New recordings will capture your natural microphone signal.'}
+function setTuneEnabled(on){tuneEnabled=!!on;if(tuneNode)tuneNode.port.postMessage({type:'enabled',enabled:tuneEnabled});renderTuneButtons();if(recorder&&recorder.state==='recording')$('recordStatus').textContent=tuneEnabled?'Auto-Tune enabled for this recording.':'Auto-Tune bypassed for this recording.'}
+function openSettings(){showPage('settings')}
+async function prepareTuneEngine(inputStream){if(!window.AudioContext||!AudioContext.prototype.audioWorklet)throw new Error('This browser does not support the live Auto-Tune audio engine. Update Chrome and try again.');audioContext=new AudioContext();await audioContext.resume();const source=audioContext.createMediaStreamSource(inputStream);tuneDestination=audioContext.createMediaStreamDestination();
+const workletSource=`class JackPitchTune extends AudioWorkletProcessor{constructor(){super();this.enabled=false;this.settings={mode:'chromatic',key:'C',scale:'major',style:'natural',strength:70};this.ring=new Float32Array(8192);this.write=0;this.count=0;this.ratio=1;this.phase=0;this.window=1024;this.port.onmessage=e=>{const m=e.data||{};if(m.type==='enabled')this.enabled=m.enabled;if(m.type==='settings')this.settings={...this.settings,...m.settings}}}detect(){const n=2048;let mean=0;for(let i=0;i<n;i++)mean+=this.ring[(this.write-n+i+8192)%8192];mean/=n;let bestLag=0,best=-1;const min=Math.floor(sampleRate/420),max=Math.min(Math.floor(sampleRate/75),900);for(let lag=min;lag<=max;lag++){let corr=0,a=0,b=0;for(let i=0;i<n-lag;i+=2){const x=this.ring[(this.write-n+i+8192)%8192]-mean,y=this.ring[(this.write-n+i+lag+8192)%8192]-mean;corr+=x*y;a+=x*x;b+=y*y}const score=corr/Math.sqrt((a*b)||1);if(score>best){best=score;bestLag=lag}}if(bestLag&&best>.58){const hz=sampleRate/bestLag;const midi=69+12*Math.log2(hz/440);let target=Math.round(midi);if(this.settings.mode==='key'){const names=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];const root=names.indexOf(this.settings.key);const steps=this.settings.scale==='minor'?[0,2,3,5,7,8,10]:[0,2,4,5,7,9,11];const candidates=[];for(let oct=-2;oct<=2;oct++)for(const st of steps)candidates.push(60+root+st+12*oct);target=candidates.reduce((p,c)=>Math.abs(c-midi)<Math.abs(p-midi)?c:p,candidates[0])}const amount=this.settings.style==='natural'?.35:this.settings.style==='strong'?.75:1;const strength=Math.max(0,Math.min(1,this.settings.strength/100));this.ratio=Math.pow(2,(target-midi)*amount*strength/12)}else this.ratio=1}sample(buf,pos){const i=Math.floor(pos),f=pos-i;return buf[(i+8192)%8192]*(1-f)+buf[(i+1+8192)%8192]*f}process(inputs,outputs){const input=inputs[0],output=outputs[0];if(!input||!input.length)return true;for(let ch=0;ch<output.length;ch++){const src=input[Math.min(ch,input.length-1)],out=output[ch];for(let i=0;i<out.length;i++){const x=src[i]||0;this.ring[this.write]=x;this.write=(this.write+1)%8192;this.count++;if(this.count>=2048){this.detect();this.count=0}if(!this.enabled){out[i]=x;continue}const p=this.phase=(this.phase+(1-this.ratio)/this.window+1)%1;const p2=(p+.5)%1;const a=this.sample(this.ring,this.write-(256+p*this.window));const b=this.sample(this.ring,this.write-(256+p2*this.window));const mix=(1-Math.cos(2*Math.PI*p))*.5;out[i]=a*(1-mix)+b*mix}}return true}}registerProcessor('jack-pitch-tune',JackPitchTune);`;
+if(!tuneModuleReady){const blob=new Blob([workletSource],{type:'text/javascript'});const url=URL.createObjectURL(blob);tuneModuleReady=audioContext.audioWorklet.addModule(url).finally(()=>URL.revokeObjectURL(url))}await tuneModuleReady;tuneNode=new AudioWorkletNode(audioContext,'jack-pitch-tune',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[1]});tuneNode.port.postMessage({type:'settings',settings:tuneSettings});tuneNode.port.postMessage({type:'enabled',enabled:tuneEnabled});source.connect(tuneNode);tuneNode.connect(tuneDestination);return tuneDestination.stream}
+function releaseTuneEngine(){try{if(tuneNode)tuneNode.disconnect();if(tuneDestination)tuneDestination.disconnect();if(audioContext)audioContext.close()}catch(e){}audioContext=null;tuneNode=null;tuneDestination=null;tuneModuleReady=null}
 let db=null,currentSongId=null,recorder=null,stream=null,chunks=[],pendingBlob=null,pendingType='audio/webm',startedAt=0,timerHandle=null;
 const DB_NAME='hearthsong-studio',DB_VERSION=1;
 function openDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,DB_VERSION);req.onupgradeneeded=()=>{const d=req.result;if(!d.objectStoreNames.contains('songs')){const s=d.createObjectStore('songs',{keyPath:'id'});s.createIndex('updatedAt','updatedAt')}if(!d.objectStoreNames.contains('takes')){const t=d.createObjectStore('takes',{keyPath:'id'});t.createIndex('createdAt','createdAt');t.createIndex('songId','songId')}};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
@@ -151,7 +181,7 @@ function dateText(ts){return new Date(ts).toLocaleString([], {year:'numeric',mon
 function durationText(sec){const n=Math.max(0,Math.floor(sec||0));return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')}
 async function saveCurrentSong(){const title=$('songTitle').value.trim()||'Untitled song';const now=Date.now();const song={id:currentSongId||makeId(),title,lyrics:$('lyrics').value,notes:$('songNotes').value,updatedAt:now,createdAt:window.currentCreatedAt||now};await reqPromise(store('songs','readwrite').put(song));currentSongId=song.id;window.currentCreatedAt=song.createdAt;$('songTitle').value=title;$('songStatus').textContent='Song saved on this device.';return song}
 async function loadSong(id){const s=await reqPromise(store('songs').get(id));if(!s)return;currentSongId=s.id;window.currentCreatedAt=s.createdAt;$('songTitle').value=s.title;$('lyrics').value=s.lyrics||'';$('songNotes').value=s.notes||'';$('songStatus').textContent='Editing saved song.';showPage('write')}
-function showPage(which){const writing=which==='write';$('writePage').hidden=!writing;$('libraryPage').hidden=writing;$('writeTab').classList.toggle('active',writing);$('libraryTab').classList.toggle('active',!writing);if(!writing)refreshLibrary()}
+function showPage(which){const writing=which==='write',library=which==='library';$('writePage').hidden=!writing;$('libraryPage').hidden=!library;$('settingsPage').hidden=writing||library;$('writeTab').classList.toggle('active',writing);$('libraryTab').classList.toggle('active',library);$('settingsTab').classList.toggle('active',!writing&&!library);if(library)refreshLibrary()}
 let scrollActive=false,scrollFrame=null,lastScrollStamp=0,scrollSpeed=10,stageFont=clampStageFont();
 function clampStageFont(){return 32}
 function syncStageLyrics(){const text=$('lyrics').value;$('stageTitle').textContent=$('songTitle').value.trim()||'Untitled song';const pane=$('stageLyrics');pane.replaceChildren();const lines=(text||'Write your lyrics to see them here.').split(/\\r?\\n/);lines.forEach((line,index)=>{const item=document.createElement('div');item.className=line.trim()?'lyric-line':'lyric-line spacer';item.dataset.line=String(index);item.textContent=line||' ';pane.append(item)});updateStageActiveLine() }
@@ -169,6 +199,7 @@ $('scrollTop').onclick=()=>{$('stageLyrics').scrollTop=0;stopAutoScroll();update
 $('fontDown').onclick=()=>{stageFont=Math.max(20,stageFont-2);$('stageLyrics').style.fontSize=stageFont+'px';updateStageActiveLine()};
 $('fontUp').onclick=()=>{stageFont=Math.min(48,stageFont+2);$('stageLyrics').style.fontSize=stageFont+'px';updateStageActiveLine()};
 
+$('settingsTab').onclick=openSettings;$('settingsBack').onclick=()=>showPage('write');$('openSettingsFromWrite').onclick=openSettings;['tuneMode','tuneKey','tuneScale','tuneStyle','tuneStrength'].forEach(id=>$(id).addEventListener('input',saveTuneSettings));$('writeAutotune').onclick=()=>setTuneEnabled(!tuneEnabled);$('stageAutotune').onclick=()=>setTuneEnabled(!tuneEnabled);
 $('writeTab').onclick=()=>showPage('write');$('libraryTab').onclick=()=>showPage('library');
 $('saveSong').onclick=async()=>{try{await saveCurrentSong()}catch(e){$('songStatus').textContent='Could not save. Check available storage in your browser.'}};
 $('newSong').onclick=()=>{currentSongId=null;window.currentCreatedAt=null;$('songTitle').value='';$('lyrics').value='';$('songNotes').value='';$('songStatus').textContent='Ready for a new song.';$('songTitle').focus()};
@@ -180,12 +211,12 @@ $('recordButton').onclick=async()=>{
  if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){$('recordStatus').textContent='Recording is not supported here. Open the published app in Chrome over HTTPS.';return}
  try{
   await saveCurrentSong();
-  stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
-  chunks=[];const mime=['audio/webm;codecs=opus','audio/webm','audio/mp4'].find(t=>MediaRecorder.isTypeSupported(t));pendingType=mime||'audio/webm';recorder=new MediaRecorder(stream,mime?{mimeType:mime}:undefined);
+  const micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});stream=micStream;let recordStream=micStream;if(tuneEnabled){try{recordStream=await prepareTuneEngine(micStream)}catch(engineError){micStream.getTracks().forEach(t=>t.stop());stream=null;releaseTuneEngine();throw engineError}}stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+  chunks=[];const mime=['audio/webm;codecs=opus','audio/webm','audio/mp4'].find(t=>MediaRecorder.isTypeSupported(t));pendingType=mime||'audio/webm';recorder=new MediaRecorder(recordStream,mime?{mimeType:mime}:undefined);recorder=new MediaRecorder(stream,mime?{mimeType:mime}:undefined);
   recorder.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
-  recorder.onstop=()=>{stopAutoScroll();pendingBlob=new Blob(chunks,{type:recorder.mimeType||pendingType});if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;clearInterval(timerHandle);setRecordingUI(false);$('recordState').textContent='Recording complete';$('recordHint').textContent='Listen before saving your take';$('preview').src=URL.createObjectURL(pendingBlob);$('previewBox').hidden=false;$('recordStatus').textContent='Your take is ready. Save it to keep it in My Songs.'};
+  recorder.onstop=()=>{stopAutoScroll();pendingBlob=new Blob(chunks,{type:recorder.mimeType||pendingType});if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;releaseTuneEngine();clearInterval(timerHandle);if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;clearInterval(timerHandle);setRecordingUI(false);$('recordState').textContent='Recording complete';$('recordHint').textContent='Listen before saving your take';$('preview').src=URL.createObjectURL(pendingBlob);$('previewBox').hidden=false;$('recordStatus').textContent='Your take is ready. Save it to keep it in My Songs.'};
   recorder.start();startedAt=Date.now();setRecordingUI(true);$('recordStatus').textContent='Recording your song…';if(!$('lyricStage').hidden){syncStageLyrics();$('stageHint').textContent='Recording started. Web version does not listen for lyric matching; use manual timed scrolling or the Android app.';}$('previewBox').hidden=true;$('timer').textContent='00:00';timerHandle=setInterval(()=>$('timer').textContent=durationText((Date.now()-startedAt)/1000),250);
- }catch(e){$('recordStatus').textContent=e.name==='NotAllowedError'?'Microphone permission was blocked. Allow microphone access in Chrome settings.':'Could not start recording. Check microphone permission and try again.';if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;setRecordingUI(false)}
+ }catch(e){$('recordStatus').textContent=e.name==='NotAllowedError'?'Microphone permission was blocked. Allow microphone access in Chrome settings.':'Could not start recording. Check microphone permission and try again.';if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;releaseTuneEngine();setRecordingUI(false)if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;setRecordingUI(false)}
 };
 $('keepTake').onclick=async()=>{if(!pendingBlob)return;try{const song=await saveCurrentSong();const take={id:makeId(),songId:song.id,songTitle:song.title,createdAt:Date.now(),duration:(Date.now()-startedAt)/1000,blob:pendingBlob,type:pendingBlob.type};await reqPromise(store('takes','readwrite').put(take));pendingBlob=null;$('previewBox').hidden=true;$('preview').removeAttribute('src');$('recordStatus').textContent='Recording saved in My Songs. ♥';$('timer').textContent=durationText(take.duration); }catch(e){$('recordStatus').textContent='Could not save this recording. Try downloading it as a backup.'}};
 $('discardTake').onclick=()=>{pendingBlob=null;$('previewBox').hidden=true;$('preview').pause();$('preview').removeAttribute('src');$('recordStatus').textContent='Recording discarded.'};
@@ -199,7 +230,7 @@ async function refreshLibrary(){
 }
 async function deleteSong(id){if(!confirm('Delete this song and all of its recordings?'))return;const takes=await reqPromise(store('takes').getAll());const tx=db.transaction(['songs','takes'],'readwrite');tx.objectStore('songs').delete(id);for(const t of takes)if(t.songId===id)tx.objectStore('takes').delete(t.id);tx.oncomplete=()=>refreshLibrary()}
 async function deleteTake(id){if(!confirm('Delete this recording?'))return;await reqPromise(store('takes','readwrite').delete(id));refreshLibrary()}
-(async()=>{try{db=await openDB();$('songStatus').textContent='Your songwriting studio is ready.';await refreshLibrary()}catch(e){$('songStatus').textContent='Local storage could not be opened. Please use Chrome and check site storage permissions.'}})();
+(async()=>{loadTuneSettings();renderTuneButtons();try{db=await openDB();$('songStatus').textContent='Your songwriting studio is ready.';await refreshLibrary()}catch(e){$('songStatus').textContent='Local storage could not be opened. Please use Chrome and check site storage permissions.'}})();(async()=>{try{db=await openDB();$('songStatus').textContent='Your songwriting studio is ready.';await refreshLibrary()}catch(e){$('songStatus').textContent='Local storage could not be opened. Please use Chrome and check site storage permissions.'}})();
 if('serviceWorker'in navigator&&location.protocol==='https:'){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}))}
 </script>
 </body>
