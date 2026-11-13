@@ -348,6 +348,7 @@ class MainActivity : Activity() {
         library.addView(recordingBox,LinearLayout.LayoutParams(-1,-2))
     }
 
+    // Modifier by Genre applies a reusable whole-mix preset plus user-adjustable processing controls.
     private data class GenreSound(val name:String,val tone:AutoTuneProcessor.ToneSettings)
 
     private fun genreSounds():List<GenreSound> = listOf(
