@@ -1,4 +1,4 @@
-const CACHE_NAME = "hearthsong-shell-v11";
+const CACHE_NAME = "jacks-repo-shell-v12";
 const APP_FILES = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 const DSP_ASSETS = [
   "https://esm.sh/@soundtouchjs/formant-correction-worklet@2.1.1?bundle",
