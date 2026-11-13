@@ -163,12 +163,12 @@ footer{text-align:center;color:#81908d;font-size:11px;padding:24px 0 5px}
 <script>
 const $=id=>document.getElementById(id);
 let db=null,currentSongId=null,recorder=null,stream=null,chunks=[],pendingBlob=null,pendingType='audio/webm',startedAt=0,timerHandle=null;
-let tuneEnabled=false,tuneSettings={mode:'chromatic',key:'C',scale:'major',style:'natural',strength:70,retuneSpeed:55,formant:100},audioContext=null,tuneNode=null,tuneDestination=null,tuneModuleReady=null;
+let tuneEnabled=false,tuneSettings={mode:'chromatic',key:'C',scale:'major',style:'natural',strength:70,retuneSpeed:55,formant:100},audioContext=null,tuneNode=null,tuneDestination=null,tuneDryGain=null,tuneWetGain=null,tuneModuleReady=null;
 const TUNE_STORAGE='jacks-repo-autotune-v1';
 function loadTuneSettings(){try{tuneSettings={...tuneSettings,...JSON.parse(localStorage.getItem(TUNE_STORAGE)||'{}')}}catch(e){}$('tuneMode').value=tuneSettings.mode;$('tuneKey').value=tuneSettings.key;$('tuneScale').value=tuneSettings.scale;$('tuneStyle').value=tuneSettings.style;$('tuneStrength').value=tuneSettings.strength;$('tuneStrengthValue').textContent=tuneSettings.strength+'%';$('tuneRetune').value=tuneSettings.retuneSpeed;$('tuneRetuneValue').textContent=tuneSettings.retuneSpeed+'%';$('tuneFormant').value=tuneSettings.formant;$('tuneFormantValue').textContent=tuneSettings.formant+'%';$('keySettings').hidden=tuneSettings.mode!=='key'}
 function saveTuneSettings(){tuneSettings={mode:$('tuneMode').value,key:$('tuneKey').value,scale:$('tuneScale').value,style:$('tuneStyle').value,strength:Number($('tuneStrength').value),retuneSpeed:Number($('tuneRetune').value),formant:Number($('tuneFormant').value)};localStorage.setItem(TUNE_STORAGE,JSON.stringify(tuneSettings));$('tuneStrengthValue').textContent=tuneSettings.strength+'%';$('tuneRetuneValue').textContent=tuneSettings.retuneSpeed+'%';$('tuneFormantValue').textContent=tuneSettings.formant+'%';if(tuneNode)tuneNode.formantStrength.setTargetAtTime(tuneSettings.formant/100,audioContext.currentTime,0.04);$('keySettings').hidden=tuneSettings.mode!=='key';$('settingsStatus').textContent='Auto-Tune preferences saved on this device.'}
 function renderTuneButtons(){for(const id of ['writeAutotune','stageAutotune']){const b=$(id);b.textContent='🎙 Auto-Tune: '+(tuneEnabled?'ON':'OFF');b.classList.toggle('toggle-on',tuneEnabled);b.setAttribute('aria-pressed',String(tuneEnabled))}$('writeTuneStatus').textContent=tuneEnabled?'Auto-Tune is ON. New recordings will capture the corrected signal.':'Auto-Tune is OFF. New recordings will capture your natural microphone signal.'}
-function setTuneEnabled(on){tuneEnabled=!!on;if(!tuneEnabled&&tuneNode&&audioContext)tuneNode.pitchSemitones.setTargetAtTime(0,audioContext.currentTime,0.02);renderTuneButtons();if(recorder&&recorder.state==='recording')$('recordStatus').textContent=tuneEnabled?'Auto-Tune enabled for this recording.':'Auto-Tune bypassed for this recording.'}
+function setTuneEnabled(on){tuneEnabled=!!on;if(audioContext&&tuneDryGain&&tuneWetGain){tuneDryGain.gain.setTargetAtTime(tuneEnabled?0:1,audioContext.currentTime,0.015);tuneWetGain.gain.setTargetAtTime(tuneEnabled?1:0,audioContext.currentTime,0.015)}if(!tuneEnabled&&tuneNode&&audioContext)tuneNode.pitchSemitones.setTargetAtTime(0,audioContext.currentTime,0.02);renderTuneButtons();if(recorder&&recorder.state==='recording')$('recordStatus').textContent=tuneEnabled?'Auto-Tune enabled for this recording.':'Auto-Tune bypassed for this recording.'}
 function openSettings(){showPage('settings')}
 async function prepareTuneEngine(inputStream){
  if(!window.AudioContext||!AudioContext.prototype.audioWorklet)throw new Error('Live vocal tuning requires a current Chrome browser with AudioWorklet support.');
@@ -181,7 +181,10 @@ async function prepareTuneEngine(inputStream){
  tuneNode=new FormantCorrectionNode({context:audioContext});
  tuneNode.formantStrength.value=tuneSettings.formant/100;
  tuneNode.pitchSemitones.value=0;
- source.connect(tuneNode);tuneNode.connect(tuneDestination);
+ tuneDryGain=audioContext.createGain();tuneWetGain=audioContext.createGain();
+ tuneDryGain.gain.value=tuneEnabled?0:1;tuneWetGain.gain.value=tuneEnabled?1:0;
+ source.connect(tuneDryGain);tuneDryGain.connect(tuneDestination);
+ source.connect(tuneNode);tuneNode.connect(tuneWetGain);tuneWetGain.connect(tuneDestination);
  const trackerCode=`class JackYinTracker extends AudioWorkletProcessor{
  constructor(){super();this.ring=new Float32Array(4096);this.write=0;this.hop=0;this.last=0}
  process(inputs,outputs){const input=inputs[0];const output=outputs[0];if(!input||!input.length)return true;const x=input[0];const out=output[0];for(let i=0;i<out.length;i++){out[i]=0;const v=x?x[i]||0:0;this.ring[this.write]=v;this.write=(this.write+1)&4095;this.hop++}if(this.hop>=1024){this.hop=0;this.analyse()}return true}
@@ -195,7 +198,7 @@ async function prepareTuneEngine(inputStream){
  tuneNode.port.postMessage({type:'jack-repo-tuner-ready'});
  return tuneDestination.stream;
 }
-function releaseTuneEngine(){try{if(tuneNode)tuneNode.disconnect();if(tuneDestination)tuneDestination.disconnect();if(audioContext)audioContext.close()}catch(e){}audioContext=null;tuneNode=null;tuneDestination=null;tuneModuleReady=null}
+function releaseTuneEngine(){try{if(tuneNode)tuneNode.disconnect();if(tuneDryGain)tuneDryGain.disconnect();if(tuneWetGain)tuneWetGain.disconnect();if(tuneDestination)tuneDestination.disconnect();if(audioContext)audioContext.close()}catch(e){}audioContext=null;tuneNode=null;tuneDestination=null;tuneDryGain=null;tuneWetGain=null;tuneModuleReady=null}
 const DB_NAME='hearthsong-studio',DB_VERSION=1;
 function openDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,DB_VERSION);req.onupgradeneeded=()=>{const d=req.result;if(!d.objectStoreNames.contains('songs')){const s=d.createObjectStore('songs',{keyPath:'id'});s.createIndex('updatedAt','updatedAt')}if(!d.objectStoreNames.contains('takes')){const t=d.createObjectStore('takes',{keyPath:'id'});t.createIndex('createdAt','createdAt');t.createIndex('songId','songId')}};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
 function store(name,mode='readonly'){return db.transaction(name,mode).objectStore(name)}
