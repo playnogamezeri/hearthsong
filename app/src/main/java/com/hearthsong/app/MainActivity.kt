@@ -1033,56 +1033,71 @@ class MainActivity : Activity() {
         }
     }
 
+    // Each emotion selects a predefined musical key, scale and correction character.
+    // These are creative starting points; they do not detect the backing track's key.
+    private data class VoiceEmotionPreset(
+        val name:String, val key:Int, val scale:Int, val strength:Int,
+        val speed:Int, val finish:LiveAutoTuneEngine.Finish, val description:String
+    )
+
+    private val voiceEmotionPresets = listOf(
+        VoiceEmotionPreset("😊 Happy",0,1,76,62,LiveAutoTuneEngine.Finish.POLISHED,"Bright C major · lively and clear"),
+        VoiceEmotionPreset("💔 Sad",9,2,68,35,LiveAutoTuneEngine.Finish.NATURAL,"Tender A minor · gentle correction"),
+        VoiceEmotionPreset("❤️ Romantic",5,1,66,38,LiveAutoTuneEngine.Finish.NATURAL,"Warm F major · smooth and intimate"),
+        VoiceEmotionPreset("🔥 Confident",7,1,88,78,LiveAutoTuneEngine.Finish.POLISHED,"Strong G major · firm and focused"),
+        VoiceEmotionPreset("😠 Angry",2,2,92,88,LiveAutoTuneEngine.Finish.POLISHED,"Intense D minor · tighter correction"),
+        VoiceEmotionPreset("🌙 Dreamy",4,2,62,28,LiveAutoTuneEngine.Finish.NATURAL,"Soft E minor · relaxed and floating"),
+        VoiceEmotionPreset("🌅 Hopeful",2,1,72,48,LiveAutoTuneEngine.Finish.NATURAL,"Open D major · gentle lift"),
+        VoiceEmotionPreset("🖤 Dark",11,2,82,68,LiveAutoTuneEngine.Finish.POLISHED,"Moody B minor · controlled and focused")
+    )
+
     private fun loadLiveTuneSettings():LiveAutoTuneEngine.Settings{
-        val key=prefs.getInt("live_tune_key",0).coerceIn(0,11)
-        val scale=prefs.getInt("live_tune_scale",2).coerceIn(0,2)
-        val strength=prefs.getInt("live_tune_strength",78).coerceIn(0,100)/100.0
-        val speed=prefs.getInt("live_tune_speed",58).coerceIn(0,100)/100.0
-        val style=prefs.getInt("live_tune_style",0).coerceIn(0,2)
-        val finish=when(style){0->LiveAutoTuneEngine.Finish.NATURAL;1->LiveAutoTuneEngine.Finish.POLISHED;else->LiveAutoTuneEngine.Finish.ROBOTIC}
-        return LiveAutoTuneEngine.Settings(key,scale,strength,speed,finish)
+        val index=prefs.getInt("live_tune_emotion",0).coerceIn(0,voiceEmotionPresets.lastIndex)
+        val preset=voiceEmotionPresets[index]
+        return LiveAutoTuneEngine.Settings(
+            key=preset.key, scale=preset.scale,
+            strength=preset.strength/100.0, retuneSpeed=preset.speed/100.0,
+            finish=preset.finish
+        )
     }
 
     private fun showLiveAutoTuneSettings(){
-        val settings=loadLiveTuneSettings()
-        val noteNames=listOf("C","C♯ / D♭","D","D♯ / E♭","E","F","F♯ / G♭","G","G♯ / A♭","A","A♯ / B♭","B")
-        val keyPicker=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,noteNames);setSelection(settings.key)}
-        val scalePicker=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,listOf("Chromatic · all notes","Major","Natural minor"));setSelection(settings.scale)}
-        val stylePicker=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,listOf("Natural · gentle","Polished · stronger","Robotic · maximum"));setSelection(prefs.getInt("live_tune_style",0).coerceIn(0,2))}
-        val strengthValue=TextView(this).apply{text="Correction strength · "+(settings.strength*100).toInt()+"%";textSize=13f;setTextColor(teal)}
-        val strengthBar=SeekBar(this).apply{max=100;progress=(settings.strength*100).toInt()}
-        strengthBar.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
-            override fun onProgressChanged(bar:SeekBar?,value:Int,fromUser:Boolean){strengthValue.text="Correction strength · "+value+"%"}
-            override fun onStartTrackingTouch(bar:SeekBar?){}
-            override fun onStopTrackingTouch(bar:SeekBar?){}
-        })
-        val speedValue=TextView(this).apply{text="Retune speed · "+(settings.retuneSpeed*100).toInt()+"%";textSize=13f;setTextColor(teal)}
-        val speedBar=SeekBar(this).apply{max=100;progress=(settings.retuneSpeed*100).toInt()}
-        speedBar.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
-            override fun onProgressChanged(bar:SeekBar?,value:Int,fromUser:Boolean){speedValue.text="Retune speed · "+value+"%"}
-            override fun onStartTrackingTouch(bar:SeekBar?){}
-            override fun onStopTrackingTouch(bar:SeekBar?){}
-        })
+        val selected=prefs.getInt("live_tune_emotion",0).coerceIn(0,voiceEmotionPresets.lastIndex)
+        val picker=Spinner(this).apply{
+            adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,voiceEmotionPresets.map{it.name})
+            setSelection(selected)
+        }
+        val description=TextView(this).apply{
+            text=voiceEmotionPresets[selected].description
+            textSize=14f;setTextColor(teal);setPadding(2,12,2,8)
+        }
+        picker.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{
+            override fun onNothingSelected(parent:AdapterView<*>?){}
+            override fun onItemSelected(parent:AdapterView<*>?,view:View?,position:Int,id:Long){
+                description.text=voiceEmotionPresets[position].description
+            }
+        }
         val panel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(22,8,22,4)}
-        panel.addView(TextView(this).apply{text="Set the song's key and scale for live pitch correction. If you are unsure, choose Chromatic.";textSize=13f;setTextColor(Color.DKGRAY);setPadding(0,0,0,8)})
-        fun addSetting(label:String,view:View){panel.addView(TextView(this).apply{text=label;textSize=12f;setTextColor(Color.GRAY);setPadding(0,10,0,3)});panel.addView(view)}
-        addSetting("SONG KEY",keyPicker);addSetting("SCALE",scalePicker);addSetting("CORRECTION STYLE",stylePicker)
-        addSetting("CORRECTION STRENGTH",strengthValue);panel.addView(strengthBar)
-        addSetting("RETUNE SPEED",speedValue);panel.addView(speedBar)
-        panel.addView(TextView(this).apply{text="Live tuning affects the complete microphone mix, including guitar and background sound. Use headphones and test with a short take first.";textSize=12f;setTextColor(Color.DKGRAY);setPadding(0,12,0,4)})
-        AlertDialog.Builder(this).setTitle("Live Auto-Tune settings").setView(panel).setNegativeButton("Cancel",null).setPositiveButton("Save settings"){_,_->
-            val style=stylePicker.selectedItemPosition
-            prefs.edit()
-                .putInt("live_tune_key",keyPicker.selectedItemPosition)
-                .putInt("live_tune_scale",scalePicker.selectedItemPosition)
-                .putInt("live_tune_style",style)
-                .putInt("live_tune_strength",strengthBar.progress)
-                .putInt("live_tune_speed",speedBar.progress).apply()
-            liveTuneSettings=loadLiveTuneSettings()
-            liveTuneEngine.configure(liveTuneSettings)
-            liveTuneEngine.reset()
-            toast("Live Auto-Tune settings saved.")
-        }.show()
+        panel.addView(TextView(this).apply{
+            text="Choose the feeling you want your vocal tuning to express. The app automatically selects its pitch target, scale and tuning character."
+            textSize=14f;setTextColor(Color.DKGRAY);setPadding(0,0,0,8)
+        })
+        panel.addView(TextView(this).apply{text="VOICE EMOTION";textSize=12f;setTextColor(Color.GRAY);setPadding(0,10,0,3)})
+        panel.addView(picker)
+        panel.addView(description)
+        panel.addView(TextView(this).apply{
+            text="Important: each emotion uses a preset key and scale. If your guitar or instrumental is in a different key, the tuned voice may clash with it. The current recorder captures voice and guitar together and cannot identify the song key automatically."
+            textSize=12f;setTextColor(Color.DKGRAY);setPadding(0,12,0,4)
+        })
+        AlertDialog.Builder(this).setTitle("Auto-Tune · Voice Emotion").setView(panel)
+            .setNegativeButton("Cancel",null)
+            .setPositiveButton("Save emotion"){_,_->
+                prefs.edit().putInt("live_tune_emotion",picker.selectedItemPosition).apply()
+                liveTuneSettings=loadLiveTuneSettings()
+                liveTuneEngine.configure(liveTuneSettings)
+                liveTuneEngine.reset()
+                toast("Voice emotion saved.")
+            }.show()
     }
 
     private fun writeWav(raw:File,wav:File,sampleRate:Int){
