@@ -152,6 +152,7 @@ class MainActivity : Activity() {
         addHomeChoice("✍  Write Lyrics","Create a song, shape your words, and save your lyrics."){showPage(false)}
         addHomeChoice("🎤  Sing Lyrics","Open a clean lyric-following screen for singing practice. No guitar recording."){showLyrics(false)}
         addHomeChoice("🎸  Sing & Play Guitar","Follow your lyrics while recording your voice and guitar together."){showLyrics(true);startPerformance()}
+        homePage.addView(button("⚙  Studio Settings · Live Auto-Tune"){showLiveAutoTuneSettings()})
         homePage.addView(button("My Songs & Recordings"){showPage(true)})
         editorPage=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;visibility=View.GONE}
         libraryPage=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;visibility=View.GONE}
@@ -329,7 +330,7 @@ class MainActivity : Activity() {
             item.addView(TextView(this).apply{text=(index+1).toString()+".  "+recordingDateLabel(file).removePrefix("Recorded: ");textSize=12f;setTextColor(Color.GRAY)})
             val takeRow=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
             takeRow.addView(button(if(playingFile==file.absolutePath && player?.isPlaying==true)"Ⅱ Play" else "▶ Play"){playTake(file)},LinearLayout.LayoutParams(0,-2,1f))
-            takeRow.addView(button("Equalizer"){showEqualizerSettings(file)},LinearLayout.LayoutParams(0,-2,1f))
+            takeRow.addView(button("Modifier"){showGenreModifier(file)},LinearLayout.LayoutParams(0,-2,1f))
             takeRow.addView(button("Delete"){AlertDialog.Builder(this@MainActivity).setTitle("Delete recording?").setMessage("Permanently delete this saved take? This cannot be undone.").setNegativeButton("Cancel",null).setPositiveButton("Delete"){_,_->deleteTake(file)}.show()},LinearLayout.LayoutParams(0,-2,1f))
             item.addView(takeRow)
             item.addView(TextView(this).apply{text=file.name;textSize=10f;setTextColor(Color.DKGRAY);setPadding(4,0,4,0)})
@@ -347,61 +348,103 @@ class MainActivity : Activity() {
         library.addView(recordingBox,LinearLayout.LayoutParams(-1,-2))
     }
 
-    private fun showEqualizerSettings(source: File) {
+    private data class GenreSound(val name:String,val tone:AutoTuneProcessor.ToneSettings)
+
+    private fun genreSounds():List<GenreSound> = listOf(
+        GenreSound("Pop",AutoTuneProcessor.ToneSettings(bassDb=1.0,trebleDb=1.5,reverb=5.0,compression=22.0,formantColor=18.0,presenceDb=2.0,deEss=0.18,saturation=0.025)),
+        GenreSound("Hip-Hop",AutoTuneProcessor.ToneSettings(bassDb=3.0,trebleDb=1.0,reverb=3.0,compression=38.0,formantColor=10.0,presenceDb=2.5,deEss=0.12,saturation=0.08)),
+        GenreSound("R&B",AutoTuneProcessor.ToneSettings(bassDb=1.8,trebleDb=1.8,reverb=12.0,compression=28.0,formantColor=28.0,presenceDb=1.8,deEss=0.25,saturation=0.025)),
+        GenreSound("Rock",AutoTuneProcessor.ToneSettings(bassDb=1.5,trebleDb=2.0,reverb=4.0,compression=35.0,formantColor=12.0,presenceDb=2.8,deEss=0.12,saturation=0.09)),
+        GenreSound("Country",AutoTuneProcessor.ToneSettings(bassDb=0.5,trebleDb=2.0,reverb=10.0,compression=22.0,formantColor=16.0,presenceDb=2.0,deEss=0.18,saturation=0.015)),
+        GenreSound("EDM",AutoTuneProcessor.ToneSettings(bassDb=3.5,trebleDb=2.5,reverb=8.0,compression=42.0,formantColor=8.0,presenceDb=2.2,deEss=0.10,saturation=0.10)),
+        GenreSound("Acoustic",AutoTuneProcessor.ToneSettings(bassDb=-0.5,trebleDb=1.0,reverb=8.0,compression=16.0,formantColor=12.0,presenceDb=1.4,deEss=0.15,saturation=0.0)),
+        GenreSound("Emo",AutoTuneProcessor.ToneSettings(bassDb=0.8,trebleDb=1.5,reverb=15.0,compression=26.0,formantColor=24.0,presenceDb=2.2,deEss=0.25,saturation=0.035)),
+        GenreSound("Jazz",AutoTuneProcessor.ToneSettings(bassDb=0.0,trebleDb=1.2,reverb=7.0,compression=14.0,formantColor=10.0,presenceDb=1.0,deEss=0.12,saturation=0.0)),
+        GenreSound("Metal",AutoTuneProcessor.ToneSettings(bassDb=2.0,trebleDb=1.6,reverb=3.0,compression=48.0,formantColor=8.0,presenceDb=3.0,deEss=0.10,saturation=0.14)),
+        GenreSound("Gospel",AutoTuneProcessor.ToneSettings(bassDb=0.8,trebleDb=1.8,reverb=20.0,compression=24.0,formantColor=22.0,presenceDb=2.0,deEss=0.22,saturation=0.015)),
+        GenreSound("Indie",AutoTuneProcessor.ToneSettings(bassDb=0.4,trebleDb=1.0,reverb=11.0,compression=20.0,formantColor=16.0,presenceDb=1.6,deEss=0.16,saturation=0.045))
+    )
+
+    private fun showGenreModifier(source: File) {
         if(source.extension.lowercase()!="wav"){
-            toast("Equalizer currently supports WAV recordings. Your original recording is unchanged.")
+            toast("Modifier currently supports WAV recordings. Your original recording is unchanged.")
             return
         }
-        val genres=listOf("Pop","Hip-Hop","R&B","Rock","Country","EDM","Acoustic","Emo")
+        val presets=genreSounds()
         val picker=Spinner(this).apply{
-            adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,genres)
+            adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,presets.map{it.name})
         }
-        val panel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(20,12,20,8)}
-        panel.addView(TextView(this).apply{
-            text="Choose a genre sound. Equalizer creates a new copy and keeps your original recording."
-            textSize=14f;setTextColor(Color.DKGRAY);setPadding(0,0,0,10)
+        val controls=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,8,18,8)}
+        val scroll=ScrollView(this).apply{isFillViewport=false;addView(controls)}
+        val labels=listOf("Bass","Treble","Presence","Compression","Reverb","Vocal color","De-esser","Saturation")
+        val minimum=listOf(-6, -6, -3, 0, 0, 0, 0, 0)
+        val maximum=listOf(6, 6, 4, 100, 100, 100, 100, 35)
+        val bars=ArrayList<SeekBar>()
+        val values=ArrayList<TextView>()
+        fun readTone():AutoTuneProcessor.ToneSettings{
+            fun v(i:Int)=minimum[i]+bars[i].progress
+            return AutoTuneProcessor.ToneSettings(
+                bassDb=v(0).toDouble(),trebleDb=v(1).toDouble(),
+                presenceDb=v(2).toDouble(),compression=v(3).toDouble(),
+                reverb=v(4).toDouble(),formantColor=v(5).toDouble(),
+                deEss=v(6)/100.0,saturation=v(7)/100.0
+            )
+        }
+        fun setPreset(index:Int){
+            val t=presets[index].tone
+            val presetValues=listOf(t.bassDb.roundToInt(),t.trebleDb.roundToInt(),t.presenceDb.roundToInt(),t.compression.roundToInt(),t.reverb.roundToInt(),t.formantColor.roundToInt(),(t.deEss*100).roundToInt(),(t.saturation*100).roundToInt())
+            for(i in bars.indices){
+                bars[i].progress=(presetValues[i]-minimum[i]).coerceIn(0,maximum[i]-minimum[i])
+                values[i].text=labels[i]+" · "+formatModifierValue(i,minimum[i]+bars[i].progress)
+            }
+        }
+        for(i in labels.indices){
+            val value=TextView(this).apply{text=labels[i];textSize=12f;setTextColor(teal);setPadding(0,8,0,1)}
+            val bar=SeekBar(this).apply{max=maximum[i]-minimum[i]}
+            bar.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
+                override fun onProgressChanged(seekBar:SeekBar?,progress:Int,fromUser:Boolean){
+                    value.text=labels[i]+" · "+formatModifierValue(i,minimum[i]+progress)
+                }
+                override fun onStartTrackingTouch(seekBar:SeekBar?){}
+                override fun onStopTrackingTouch(seekBar:SeekBar?){}
+            })
+            values.add(value);bars.add(bar);controls.addView(value);controls.addView(bar)
+        }
+        controls.addView(TextView(this).apply{
+            text="Genre presets shape the whole mono recording with tone, presence, compression, de-essing, saturation and reverb. Fine-tune the sliders after choosing a starting sound."
+            textSize=12f;setTextColor(Color.DKGRAY);setPadding(0,10,0,8)
         })
+        picker.onItemSelectedListener=object:android.widget.AdapterView.OnItemSelectedListener{
+            override fun onNothingSelected(parent:android.widget.AdapterView<*>?){}
+            override fun onItemSelected(parent:android.widget.AdapterView<*>?,view:View?,position:Int,id:Long){setPreset(position)}
+        }
+        setPreset(0)
+        val panel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(12,4,12,4)}
+        panel.addView(TextView(this).apply{text="Choose a genre starting point, then adjust the sound controls. Modifier creates a new copy and keeps the original recording.";textSize=13f;setTextColor(Color.DKGRAY);setPadding(0,0,0,8)})
         panel.addView(picker)
-        AlertDialog.Builder(this)
-            .setTitle("♫ Song Equalizer")
-            .setView(panel)
-            .setNegativeButton("Cancel",null)
-            .setPositiveButton("Apply",null)
-            .create().also{dialog->
+        panel.addView(scroll,LinearLayout.LayoutParams(-1,(340*resources.displayMetrics.density).toInt()))
+        AlertDialog.Builder(this).setTitle("♫ Modifier by Genre").setView(panel)
+            .setNegativeButton("Cancel",null).setPositiveButton("Apply",null).create().also{dialog->
                 dialog.setOnShowListener{
                     dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
-                        val genre=genres[picker.selectedItemPosition]
-                        val slug=genre.lowercase().replace("-","")
-                        var output=File(filesDir,source.nameWithoutExtension+"_eq_"+slug+".wav")
+                        val genre=presets[picker.selectedItemPosition].name
+                        val tone=readTone()
+                        val slug=genre.lowercase().replace(Regex("[^a-z0-9]+"),"")
+                        var output=File(filesDir,source.nameWithoutExtension+"_modifier_"+slug+".wav")
                         var suffix=2
-                        while(output.exists()){
-                            output=File(filesDir,source.nameWithoutExtension+"_eq_"+slug+"_"+suffix+".wav")
-                            suffix++
-                        }
-                        val tone=when(genre){
-                            "Pop"->AutoTuneProcessor.ToneSettings(bassDb=1.0,trebleDb=1.5,reverb=5.0,compression=22.0,presenceDb=2.0,deEss=0.18,saturation=0.025)
-                            "Hip-Hop"->AutoTuneProcessor.ToneSettings(bassDb=3.0,trebleDb=1.0,reverb=3.0,compression=38.0,presenceDb=2.5,deEss=0.12,saturation=0.08)
-                            "R&B"->AutoTuneProcessor.ToneSettings(bassDb=1.8,trebleDb=1.8,reverb=12.0,compression=28.0,presenceDb=1.8,deEss=0.25,saturation=0.025)
-                            "Rock"->AutoTuneProcessor.ToneSettings(bassDb=1.5,trebleDb=2.0,reverb=4.0,compression=35.0,presenceDb=2.8,deEss=0.12,saturation=0.09)
-                            "Country"->AutoTuneProcessor.ToneSettings(bassDb=0.5,trebleDb=2.0,reverb=10.0,compression=22.0,presenceDb=2.0,deEss=0.18,saturation=0.015)
-                            "EDM"->AutoTuneProcessor.ToneSettings(bassDb=3.5,trebleDb=2.5,reverb=8.0,compression=42.0,presenceDb=2.2,deEss=0.10,saturation=0.10)
-                            "Acoustic"->AutoTuneProcessor.ToneSettings(bassDb=-0.5,trebleDb=1.0,reverb=8.0,compression=16.0,presenceDb=1.4,deEss=0.15,saturation=0.0)
-                            else->AutoTuneProcessor.ToneSettings(bassDb=0.8,trebleDb=1.5,reverb=15.0,compression=26.0,presenceDb=2.2,deEss=0.25,saturation=0.035)
-                        }
+                        while(output.exists()){output=File(filesDir,source.nameWithoutExtension+"_modifier_"+slug+"_"+suffix+".wav");suffix++}
                         dialog.dismiss()
-                        toast("Applying "+genre+" EQ…")
-                        thread(name="JacksRePOEqualizer"){
+                        toast("Applying "+genre+" Modifier…")
+                        thread(name="JacksRePOGenreModifier"){
                             try{
                                 AutoTuneProcessor.process(source,output,0,2,0.0,tone)
                                 runOnUiThread{
-                                    if(output.exists()){
-                                        toast(genre+" EQ copy saved.")
-                                        renderLibrary()
-                                    }else toast("Equalizer could not save the new copy.")
+                                    if(output.exists()){toast(genre+" Modifier copy saved.");renderLibrary()}
+                                    else toast("Modifier could not save the new copy.")
                                 }
                             }catch(e:Exception){
                                 output.delete()
-                                runOnUiThread{toast("Equalizer failed: "+(e.message?:"audio processing error"))}
+                                runOnUiThread{toast("Modifier failed: "+(e.message?:"audio processing error"))}
                             }
                         }
                     }
@@ -409,6 +452,14 @@ class MainActivity : Activity() {
                 dialog.show()
             }
     }
+
+    private fun formatModifierValue(index:Int,value:Int):String=when(index){
+        0,1,2->(if(value>0)"+" else "")+value+" dB"
+        3,4,5->value+"%"
+        6->value+"%"
+        else->value+"%"
+    }
+
 
     private fun showAutoTuneSettings(source: File) {
         if (source.extension.lowercase() != "wav") {
