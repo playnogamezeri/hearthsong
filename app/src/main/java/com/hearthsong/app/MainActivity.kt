@@ -253,23 +253,6 @@ class MainActivity : Activity() {
             setSelection(prefs.getInt("autotune_output_finish", 0).coerceIn(0, 1))
         }
         panel.addView(finish)
-        section("DEFAULT HARMONY ARRANGEMENT")
-        val harmonyOptions = listOf(
-            "Two-Part Harmony · one higher + one lower backing voice",
-            "Higher backing voice only",
-            "Wide choir-style backing"
-        )
-        val harmony = Spinner(this).apply {
-            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, harmonyOptions)
-            setSelection(prefs.getInt("harmony_arrangement", 0).coerceIn(0, 2))
-        }
-        panel.addView(harmony)
-        panel.addView(TextView(this).apply {
-            text = "Recommended default: two backing parts around your lead vocal. This preference is saved now; generated harmony audio is not active yet because the current recording combines voice and guitar into one mono track."
-            textSize = 12f
-            setTextColor(Color.GRAY)
-            setPadding(0, 5, 0, 8)
-        })
         panel.addView(TextView(this).apply {
             text = "These settings affect only new processed copies. Your original recordings are never overwritten. Live monitoring and live Auto-Tune remain off."
             textSize = 12f
@@ -284,7 +267,7 @@ class MainActivity : Activity() {
                     .putInt("audio_input_source", input.selectedItemPosition)
                     .putInt("autotune_output_strength", strength.selectedItemPosition)
                     .putInt("autotune_output_finish", finish.selectedItemPosition)
-                    .putInt("harmony_arrangement", harmony.selectedItemPosition)
+                    .remove("harmony_arrangement")
                     .apply()
                 toast("Audio settings saved.")
             }
@@ -292,7 +275,7 @@ class MainActivity : Activity() {
                 prefs.edit().putInt("audio_input_source", 0)
                     .putInt("autotune_output_strength", 1)
                     .putInt("autotune_output_finish", 0)
-                    .putInt("harmony_arrangement", 0).apply()
+                    .remove("harmony_arrangement").apply()
                 toast("Audio settings reset to recommended defaults.")
             }
             .show()
@@ -556,7 +539,7 @@ class MainActivity : Activity() {
             setTypeface(null, Typeface.BOLD)
             setPadding(0, 10, 0, 6)
         })
-        val styles = listOf("Natural", "Cheerful", "Romantic", "Sad", "Dark / Depressive", "Sultry", "Angry", "Confident", "Dreamy", "Heartbroken", "Dramatic", "Robotic")
+        val styles = listOf("Natural", "Cheerful", "Romantic", "Sad", "Dark / Depressive", "Sultry", "Angry", "Confident", "Dreamy", "Heartbroken", "Dramatic", "Robotic", "Lovey-Dovey Dreamy · Youthful Male")
         val descriptions = listOf(
             "A balanced, natural sound with gentle pitch correction.",
             "A brighter, lively sound with extra sparkle.",
@@ -569,7 +552,8 @@ class MainActivity : Activity() {
             "A soft, airy and spacious sound.",
             "A warm, emotional sound with a longer tail.",
             "A bold, expressive sound with stronger presence.",
-            "A clean, synthetic sound with stronger pitch correction."
+            "A clean, synthetic sound with stronger pitch correction.",
+            "A warm, close, youthful-style romantic finish with gentle air, softened presence and dreamy ambience. This colors the recorded sound; it does not change your actual age or vocal identity."
         )
         val style = Spinner(this).apply {
             adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, styles)
@@ -627,7 +611,8 @@ class MainActivity : Activity() {
                     intArrayOf(54,58,48,16,12,32),
                     intArrayOf(42,45,38,25,25,38),
                     intArrayOf(48,60,28,38,38,48),
-                    intArrayOf(50,58,8,35,45,100)
+                    intArrayOf(50,58,8,35,45,100),
+                    intArrayOf(58,52,40,28,14,32)
                 )
                 val v = configs[selectedStyle]
                 val finishChoice = finishMode.selectedItemPosition.coerceIn(0, 1)
