@@ -152,7 +152,6 @@ class MainActivity : Activity() {
         addHomeChoice("✍  Write Lyrics","Create a song, shape your words, and save your lyrics."){showPage(false)}
         addHomeChoice("🎤  Sing Lyrics","Open a clean lyric-following screen for singing practice. No guitar recording."){showLyrics(false)}
         addHomeChoice("🎸  Sing & Play Guitar","Follow your lyrics while recording your voice and guitar together."){showLyrics(true);startPerformance()}
-        homePage.addView(button("⚙  Studio Settings · Live Auto-Tune"){showLiveAutoTuneSettings()})
         homePage.addView(button("My Songs & Recordings"){showPage(true)})
         editorPage=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;visibility=View.GONE}
         libraryPage=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;visibility=View.GONE}
