@@ -1046,7 +1046,7 @@ class MainActivity : Activity() {
         val strength=prefs.getInt("live_tune_strength",78).coerceIn(0,100)/100.0
         val speed=prefs.getInt("live_tune_speed",58).coerceIn(0,100)/100.0
         val style=prefs.getInt("live_tune_style",0).coerceIn(0,2)
-        val finish=if(style==0)LiveAutoTuneEngine.Finish.NATURAL else LiveAutoTuneEngine.Finish.POLISHED
+        val finish=when(style){0->LiveAutoTuneEngine.Finish.NATURAL;1->LiveAutoTuneEngine.Finish.POLISHED;else->LiveAutoTuneEngine.Finish.ROBOTIC}
         return LiveAutoTuneEngine.Settings(key,scale,strength,speed,finish)
     }
 
