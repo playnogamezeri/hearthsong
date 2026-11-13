@@ -102,3 +102,13 @@ When Start Performance is pressed, the lyric screen begins a gentle, steady down
 - The existing emotional DSP stage remains responsible for tone shaping. Polished mode adjusts the preset's compression, presence, de-essing, saturation, and reverb balance automatically.
 - This is an experimental mono-mix engine, not a claim of professional-grade Auto-Tune or a substitute for a studio vocal chain. The microphone recording contains voice and guitar together; there is no vocal/instrument source separation, so guitar notes may still be affected and chords can confuse pitch analysis.
 - The original WAV is never overwritten. A new processed WAV is created locally on the phone. A successful build confirms compilation and packaging only; real listening tests on the target phone and with varied singing styles are still required.
+
+
+## Live recording Auto-Tune and genre equalizer (0.8.0)
+
+- The Sing Lyrics and Sing & Play Guitar screens include one **Auto-Tune ON/OFF** toggle. It can be switched during an active recording without stopping the microphone capture.
+- When enabled, the recorder applies a lightweight YIN-based, chromatic, natural pitch-correction pass to incoming microphone audio in short PCM blocks. Speech recognition continues to use the uncorrected microphone input.
+- Live correction is experimental and runs on the complete mono microphone mix. It is not vocal isolation: guitar notes, chords, and background sounds can confuse the pitch tracker. Short-block processing can create artifacts and needs real-device listening tests.
+- The recordings library includes a **Equalizer** action for WAV takes, with Pop, Hip-Hop, R&B, Rock, Country, EDM, Acoustic, and Emo presets.
+- Applying a genre preset creates a new processed WAV copy and preserves the original. Equalization is local/offline and affects the whole mono mix.
+- A successful Android build verifies compilation and packaging only; it does not establish real-time audio quality or performance on the Galaxy A17.
