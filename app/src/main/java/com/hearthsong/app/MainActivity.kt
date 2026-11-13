@@ -64,6 +64,8 @@ class MainActivity : Activity() {
     private var popupPlaybackButton: Button? = null
     private var popupTakeSpinner: Spinner? = null
     private var popupRecordingLabel = "▶ Start Performance"
+    @Volatile private var liveAutoTuneEnabled = false
+    private var popupAutoTuneButton: Button? = null
     private var lyricScrollSpeed = 2
     private val lyricAutoScrollTick = object : Runnable {
         override fun run() {
@@ -752,6 +754,14 @@ class MainActivity : Activity() {
         playbackActions.addView(button("Stop"){player?.stop();player?.release();player=null;playingFile=null;handler.removeCallbacks(playbackTick);popupPlaybackSeek?.progress=0;popupPlaybackSeek?.isEnabled=false;popupPlaybackTime?.text="00:00 / 00:00";popupPlaybackButton?.text="▶ Play recording"},LinearLayout.LayoutParams(0,-2,1f))
         playbackPanel.addView(playbackActions)
         if(takes.isEmpty()) playbackPanel.alpha=0.85f
+        val tuneControl=button(if(liveAutoTuneEnabled)"Auto-Tune ON" else "Auto-Tune OFF"){
+            liveAutoTuneEnabled=!liveAutoTuneEnabled
+            popupAutoTuneButton?.text=if(liveAutoTuneEnabled)"Auto-Tune ON" else "Auto-Tune OFF"
+            popupStatus?.text=if(liveAutoTuneEnabled)"Recording with live pitch correction ON." else "Live pitch correction OFF. Recording continues."
+            toast(if(liveAutoTuneEnabled)"Auto-Tune ON" else "Auto-Tune OFF")
+        }
+        popupAutoTuneButton=tuneControl
+        shell.addView(tuneControl,LinearLayout.LayoutParams(-1,-2))
         val controls=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
         val performanceControl=button(popupRecordingLabel){if(modelLoading)toast("Preparing offline voice recognition…") else if(performanceFinalizing)toast("Saving the previous recording…") else if(recordingActive)stopPerformance() else startPerformance()}
         popupPerformanceButton=performanceControl
@@ -766,7 +776,7 @@ class MainActivity : Activity() {
         popupLyricText=display
         popupStatus=liveStatus
         popupTimer=liveTimer
-        dialog.setOnDismissListener{handler.removeCallbacks(lyricAutoScrollTick);if(recordingActive)stopPerformance();popupLyricScroll=null;popupLyricText=null;popupStatus=null;popupTimer=null;popupPerformanceButton=null;popupPlaybackSeek=null;popupPlaybackTime=null;popupPlaybackButton=null;popupTakeSpinner=null}
+        dialog.setOnDismissListener{handler.removeCallbacks(lyricAutoScrollTick);if(recordingActive)stopPerformance();popupLyricScroll=null;popupLyricText=null;popupStatus=null;popupTimer=null;popupPerformanceButton=null;popupPlaybackSeek=null;popupPlaybackTime=null;popupPlaybackButton=null;popupTakeSpinner=null;popupAutoTuneButton=null;liveAutoTuneEnabled=false}
         renderActiveLyricLine(false)
     }
 
@@ -876,8 +886,9 @@ class MainActivity : Activity() {
         updateRecordButton(true)
         popupPerformanceButton?.isEnabled=true
         popupPerformanceButton?.text="■ Stop Performance"
+        popupAutoTuneButton?.isEnabled=true
         popupTimer?.text="REC  00:00"
-        popupStatus?.text=if(voskModel!=null)"Recording locally. Lyric matching runs on this same microphone audio." else if(modelLoading)"Recording locally. Preparing offline lyric matching in the background." else "Recording locally. Offline lyric matching is unavailable; audio recording will continue."
+        popupStatus?.text=if(liveAutoTuneEnabled)"Recording locally with live pitch correction ON." else if(voskModel!=null)"Recording locally. Lyric matching runs on this same microphone audio." else if(modelLoading)"Recording locally. Preparing offline lyric matching in the background." else "Recording locally. Offline lyric matching is unavailable; audio recording will continue."
         status.text="Performance recording locally on this phone…"
         handler.removeCallbacks(timerTick);handler.post(timerTick)
         handler.removeCallbacks(lyricAutoScrollTick)
@@ -894,11 +905,13 @@ class MainActivity : Activity() {
                 }
                 audio.startRecording()
                 FileOutputStream(raw).use{output->
-                    val buffer=ByteArray(4096)
+                    val buffer=ByteArray(8192)
                     while(recordingActive){
                         val count=audio.read(buffer,0,buffer.size)
                         if(count>0){
-                            output.write(buffer,0,count)
+                            val original=buffer.copyOf(count)
+                            val recorded=if(liveAutoTuneEnabled)applyLivePitchCorrection(original,16000) else original
+                            output.write(recorded)
                             if(recognitionEnabled && recognizer==null){
                                 val readyModel=voskModel
                                 if(readyModel!=null){
@@ -913,7 +926,7 @@ class MainActivity : Activity() {
                             }
                             if(recognitionEnabled && recognizer!=null){
                                 try{
-                                    val result=if(recognizer.acceptWaveForm(buffer,count))recognizer.result else recognizer.partialResult
+                                    val result=if(recognizer.acceptWaveForm(original,count))recognizer.result else recognizer.partialResult
                                     val json=JSONObject(result)
                                     val words=json.optString("text").ifBlank{json.optString("partial")}
                                     if(words.isNotBlank())runOnUiThread{if(recordingActive)updateLyricsFromText(words)}
@@ -951,6 +964,27 @@ class MainActivity : Activity() {
                 audio.release()
             }
         }
+    }
+
+    private fun applyLivePitchCorrection(pcm:ByteArray,sampleRate:Int):ByteArray{
+        if(pcm.size<4096)return pcm
+        return try{
+            val count=pcm.size/2
+            val samples=ShortArray(count){i->
+                val lo=pcm[i*2].toInt() and 255
+                val hi=pcm[i*2+1].toInt()
+                ((hi shl 8) or lo).toShort()
+            }
+            val corrected=VocalPitchEngine.correct(samples,sampleRate,0,2,0.82,VocalPitchEngine.Finish.NATURAL).samples
+            ByteArray(pcm.size).also{out->
+                for(i in corrected.indices){
+                    val value=corrected[i].toInt()
+                    out[i*2]=(value and 255).toByte()
+                    out[i*2+1]=(value shr 8).toByte()
+                }
+                if(pcm.size%2!=0)out[out.lastIndex]=pcm.last()
+            }
+        }catch(_:Exception){pcm}
     }
 
     private fun writeWav(raw:File,wav:File,sampleRate:Int){
@@ -1010,6 +1044,7 @@ class MainActivity : Activity() {
         handler.removeCallbacks(timerTick)
         updateRecordButton(false)
         popupPerformanceButton?.text=popupRecordingLabel
+        popupAutoTuneButton?.isEnabled=false
     }
 
     private fun startPitchMonitor(){
