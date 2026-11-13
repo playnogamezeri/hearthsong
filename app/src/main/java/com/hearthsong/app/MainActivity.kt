@@ -65,6 +65,9 @@ class MainActivity : Activity() {
     private var popupTakeSpinner: Spinner? = null
     private var popupRecordingLabel = "▶ Start Performance"
     @Volatile private var liveAutoTuneEnabled = false
+    private var popupAutoTuneButton: Button? = null
+    private var liveTuneSettings = LiveAutoTuneEngine.Settings()
+    private val liveTuneEngine = LiveAutoTuneEngine()
 
     private var lyricScrollSpeed = 2
     private val lyricAutoScrollTick = object : Runnable {
