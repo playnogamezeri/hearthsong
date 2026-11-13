@@ -234,7 +234,7 @@ async function refreshLibrary(){
 }
 async function deleteSong(id){if(!confirm('Delete this song and all of its recordings?'))return;const takes=await reqPromise(store('takes').getAll());const tx=db.transaction(['songs','takes'],'readwrite');tx.objectStore('songs').delete(id);for(const t of takes)if(t.songId===id)tx.objectStore('takes').delete(t.id);tx.oncomplete=()=>refreshLibrary()}
 async function deleteTake(id){if(!confirm('Delete this recording?'))return;await reqPromise(store('takes','readwrite').delete(id));refreshLibrary()}
-(async()=>{loadTuneSettings();renderTuneButtons();try{db=await openDB();$('songStatus').textContent='Your songwriting studio is ready.';await refreshLibrary()}catch(e){$('songStatus').textContent='Local storage could not be opened. Please use Chrome and check site storage permissions.'}})();(async()=>{try{db=await openDB();$('songStatus').textContent='Your songwriting studio is ready.';await refreshLibrary()}catch(e){$('songStatus').textContent='Local storage could not be opened. Please use Chrome and check site storage permissions.'}})();
+(async()=>{loadTuneSettings();renderTuneButtons();try{db=await openDB();$('songStatus').textContent='Your songwriting studio is ready.';await refreshLibrary()}catch(e){$('songStatus').textContent='Local storage could not be opened. Please use Chrome and check site storage permissions.'}})();
 if('serviceWorker'in navigator&&location.protocol==='https:'){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}))}
 </script>
 </body>
