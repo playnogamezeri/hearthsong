@@ -611,7 +611,7 @@ class MainActivity : Activity() {
                     intArrayOf(50,58,8,35,45,100)
                 )
                 val v = configs[selectedStyle]
-                val finishChoice = prefs.getInt("autotune_output_finish", 0).coerceIn(0, 1)
+                val finishChoice = finishMode.selectedItemPosition.coerceIn(0, 1)
                 val finish = if (finishChoice == 1) VocalPitchEngine.Finish.POLISHED else VocalPitchEngine.Finish.NATURAL
                 val strengthMultiplier = when (prefs.getInt("autotune_output_strength", 1).coerceIn(0, 2)) {
                     0 -> 0.72
