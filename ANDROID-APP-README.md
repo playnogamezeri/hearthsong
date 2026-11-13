@@ -122,3 +122,14 @@ When Start Performance is pressed, the lyric screen begins a gentle, steady down
 - The Auto-Tune switch remains independent of the recording control. Turning it off does not stop recording; turning it back on resumes processing with the current settings.
 - This remains experimental real-time mono-mix pitch processing, not a commercial studio-grade phase-vocoder or source-separated vocal processor. The microphone captures voice, guitar, and room sound together. A rolling analysis window reduces block-boundary resets but does not eliminate pitch-tracking errors, latency, or artifacts. Test short takes with headphones and keep original recordings.
 - Version 0.8.1 uses Android versionCode 19. A successful CI build confirms compilation and packaging only; actual audio quality and device stability must be evaluated on the Galaxy A17.
+
+
+## Studio Settings and Modifier by Genre (0.8.2)
+
+- Adds a front-page **Studio Settings · Live Auto-Tune** shortcut to the adjustable live tuning panel. Song key, scale, correction style, strength, and retune speed are stored on-device and can be changed before a take; saved settings are loaded when recording starts.
+- Renames the recording-library **Equalizer** action to **Modifier** and presents a **Modifier by Genre** workflow.
+- Adds 12 whole-mix starting presets: Pop, Hip-Hop, R&B, Rock, Country, EDM, Acoustic, Emo, Jazz, Metal, Gospel, and Indie.
+- Each preset preloads bass and treble shaping, vocal presence, compression, room/reverb amount, broad vocal-color EQ, de-essing, and saturation. Users can manually adjust each control before applying.
+- Modifier processing is performed offline on mono 16-bit WAV files. It creates a separate `_modifier_<genre>.wav` copy and never overwrites the source take.
+- This is a practical starter vocal/mix chain, not a complete multitrack DAW or mastering suite. Processing affects the entire mono mix: it cannot isolate vocals from guitar or backing audio, and the simple effects are not substitutes for high-end convolution reverb, multiband mastering, stereo imaging, or professional source separation. Listen to the result and keep the original.
+- Version 0.8.2 uses Android versionCode 20.
