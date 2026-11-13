@@ -66,6 +66,9 @@ class MainActivity : Activity() {
     private var popupRecordingLabel = "▶ Start Performance"
     @Volatile private var liveAutoTuneEnabled = false
     private var popupAutoTuneButton: Button? = null
+    private var liveTuneSettings = LiveAutoTuneEngine.Settings()
+    private val liveTuneEngine = LiveAutoTuneEngine()
+
     private var lyricScrollSpeed = 2
     private val lyricAutoScrollTick = object : Runnable {
         override fun run() {
@@ -819,12 +822,16 @@ class MainActivity : Activity() {
         if(takes.isEmpty()) playbackPanel.alpha=0.85f
         val tuneControl=button(if(liveAutoTuneEnabled)"Auto-Tune ON" else "Auto-Tune OFF"){
             liveAutoTuneEnabled=!liveAutoTuneEnabled
+            if(!liveAutoTuneEnabled)liveTuneEngine.reset()
             popupAutoTuneButton?.text=if(liveAutoTuneEnabled)"Auto-Tune ON" else "Auto-Tune OFF"
             popupStatus?.text=if(liveAutoTuneEnabled)"Recording with live pitch correction ON." else "Live pitch correction OFF. Recording continues."
             toast(if(liveAutoTuneEnabled)"Auto-Tune ON" else "Auto-Tune OFF")
         }
         popupAutoTuneButton=tuneControl
-        shell.addView(tuneControl,LinearLayout.LayoutParams(-1,-2))
+        val tuneControls=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
+        tuneControls.addView(tuneControl,LinearLayout.LayoutParams(0,-2,2f))
+        tuneControls.addView(button("⚙ Tune settings"){showLiveAutoTuneSettings()},LinearLayout.LayoutParams(0,-2,1f))
+        shell.addView(tuneControls,LinearLayout.LayoutParams(-1,-2))
         val controls=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
         val performanceControl=button(popupRecordingLabel){if(modelLoading)toast("Preparing offline voice recognition…") else if(performanceFinalizing)toast("Saving the previous recording…") else if(recordingActive)stopPerformance() else startPerformance()}
         popupPerformanceButton=performanceControl
@@ -839,7 +846,7 @@ class MainActivity : Activity() {
         popupLyricText=display
         popupStatus=liveStatus
         popupTimer=liveTimer
-        dialog.setOnDismissListener{handler.removeCallbacks(lyricAutoScrollTick);if(recordingActive)stopPerformance();popupLyricScroll=null;popupLyricText=null;popupStatus=null;popupTimer=null;popupPerformanceButton=null;popupPlaybackSeek=null;popupPlaybackTime=null;popupPlaybackButton=null;popupTakeSpinner=null;popupAutoTuneButton=null;liveAutoTuneEnabled=false}
+        dialog.setOnDismissListener{handler.removeCallbacks(lyricAutoScrollTick);if(recordingActive)stopPerformance();popupLyricScroll=null;popupLyricText=null;popupStatus=null;popupTimer=null;popupPerformanceButton=null;popupPlaybackSeek=null;popupPlaybackTime=null;popupPlaybackButton=null;popupTakeSpinner=null;popupAutoTuneButton=null;liveAutoTuneEnabled=false;liveTuneEngine.reset()}
         renderActiveLyricLine(false)
     }
 
@@ -945,6 +952,9 @@ class MainActivity : Activity() {
         val raw=File(cacheDir,"take_$stamp.pcm")
         val final=File(filesDir,"take_$stamp.wav")
         performanceRawFile=raw;performanceFinalFile=final
+        liveTuneSettings=loadLiveTuneSettings()
+        liveTuneEngine.configure(liveTuneSettings)
+        liveTuneEngine.reset()
         recordingActive=true;recognitionEnabled=true;lastRecognizedPhrase="";recordingStartedAt=stamp
         updateRecordButton(true)
         popupPerformanceButton?.isEnabled=true
@@ -973,7 +983,7 @@ class MainActivity : Activity() {
                         val count=audio.read(buffer,0,buffer.size)
                         if(count>0){
                             val original=buffer.copyOf(count)
-                            val recorded=if(liveAutoTuneEnabled)applyLivePitchCorrection(original,16000) else original
+                            val recorded=if(liveAutoTuneEnabled)liveTuneEngine.process(original,16000) else original
                             output.write(recorded)
                             if(recognitionEnabled && recognizer==null){
                                 val readyModel=voskModel
@@ -1030,25 +1040,56 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun applyLivePitchCorrection(pcm:ByteArray,sampleRate:Int):ByteArray{
-        if(pcm.size<4096)return pcm
-        return try{
-            val count=pcm.size/2
-            val samples=ShortArray(count){i->
-                val lo=pcm[i*2].toInt() and 255
-                val hi=pcm[i*2+1].toInt()
-                ((hi shl 8) or lo).toShort()
-            }
-            val corrected=VocalPitchEngine.correct(samples,sampleRate,0,2,0.82,VocalPitchEngine.Finish.NATURAL).samples
-            ByteArray(pcm.size).also{out->
-                for(i in corrected.indices){
-                    val value=corrected[i].toInt()
-                    out[i*2]=(value and 255).toByte()
-                    out[i*2+1]=(value shr 8).toByte()
-                }
-                if(pcm.size%2!=0)out[out.lastIndex]=pcm.last()
-            }
-        }catch(_:Exception){pcm}
+    private fun loadLiveTuneSettings():LiveAutoTuneEngine.Settings{
+        val key=prefs.getInt("live_tune_key",0).coerceIn(0,11)
+        val scale=prefs.getInt("live_tune_scale",2).coerceIn(0,2)
+        val strength=prefs.getInt("live_tune_strength",78).coerceIn(0,100)/100.0
+        val speed=prefs.getInt("live_tune_speed",58).coerceIn(0,100)/100.0
+        val style=prefs.getInt("live_tune_style",0).coerceIn(0,2)
+        val finish=if(style==0)LiveAutoTuneEngine.Finish.NATURAL else LiveAutoTuneEngine.Finish.POLISHED
+        return LiveAutoTuneEngine.Settings(key,scale,strength,speed,finish)
+    }
+
+    private fun showLiveAutoTuneSettings(){
+        val settings=loadLiveTuneSettings()
+        val noteNames=listOf("C","C♯ / D♭","D","D♯ / E♭","E","F","F♯ / G♭","G","G♯ / A♭","A","A♯ / B♭","B")
+        val keyPicker=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,noteNames);setSelection(settings.key)}
+        val scalePicker=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,listOf("Chromatic · all notes","Major","Natural minor"));setSelection(settings.scale)}
+        val stylePicker=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,listOf("Natural · gentle","Polished · stronger","Robotic · maximum"));setSelection(prefs.getInt("live_tune_style",0).coerceIn(0,2))}
+        val strengthValue=TextView(this).apply{text="Correction strength · "+(settings.strength*100).toInt()+"%";textSize=13f;setTextColor(teal)}
+        val strengthBar=SeekBar(this).apply{max=100;progress=(settings.strength*100).toInt()}
+        strengthBar.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
+            override fun onProgressChanged(bar:SeekBar?,value:Int,fromUser:Boolean){strengthValue.text="Correction strength · "+value+"%"}
+            override fun onStartTrackingTouch(bar:SeekBar?){}
+            override fun onStopTrackingTouch(bar:SeekBar?){}
+        })
+        val speedValue=TextView(this).apply{text="Retune speed · "+(settings.retuneSpeed*100).toInt()+"%";textSize=13f;setTextColor(teal)}
+        val speedBar=SeekBar(this).apply{max=100;progress=(settings.retuneSpeed*100).toInt()}
+        speedBar.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
+            override fun onProgressChanged(bar:SeekBar?,value:Int,fromUser:Boolean){speedValue.text="Retune speed · "+value+"%"}
+            override fun onStartTrackingTouch(bar:SeekBar?){}
+            override fun onStopTrackingTouch(bar:SeekBar?){}
+        })
+        val panel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(22,8,22,4)}
+        panel.addView(TextView(this).apply{text="Set the song's key and scale for live pitch correction. If you are unsure, choose Chromatic.";textSize=13f;setTextColor(Color.DKGRAY);setPadding(0,0,0,8)})
+        fun addSetting(label:String,view:View){panel.addView(TextView(this).apply{text=label;textSize=12f;setTextColor(Color.GRAY);setPadding(0,10,0,3)});panel.addView(view)}
+        addSetting("SONG KEY",keyPicker);addSetting("SCALE",scalePicker);addSetting("CORRECTION STYLE",stylePicker)
+        addSetting("CORRECTION STRENGTH",strengthValue);panel.addView(strengthBar)
+        addSetting("RETUNE SPEED",speedValue);panel.addView(speedBar)
+        panel.addView(TextView(this).apply{text="Live tuning affects the complete microphone mix, including guitar and background sound. Use headphones and test with a short take first.";textSize=12f;setTextColor(Color.DKGRAY);setPadding(0,12,0,4)})
+        AlertDialog.Builder(this).setTitle("Live Auto-Tune settings").setView(panel).setNegativeButton("Cancel",null).setPositiveButton("Save settings"){_,_->
+            val style=stylePicker.selectedItemPosition
+            prefs.edit()
+                .putInt("live_tune_key",keyPicker.selectedItemPosition)
+                .putInt("live_tune_scale",scalePicker.selectedItemPosition)
+                .putInt("live_tune_style",style)
+                .putInt("live_tune_strength",strengthBar.progress)
+                .putInt("live_tune_speed",speedBar.progress).apply()
+            liveTuneSettings=loadLiveTuneSettings()
+            liveTuneEngine.configure(liveTuneSettings)
+            liveTuneEngine.reset()
+            toast("Live Auto-Tune settings saved.")
+        }.show()
     }
 
     private fun writeWav(raw:File,wav:File,sampleRate:Int){
