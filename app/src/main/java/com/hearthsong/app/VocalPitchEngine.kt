@@ -10,7 +10,7 @@ import kotlin.math.*
  * lightweight monophonic estimator for a mono mix, not source separation.
  */
 internal object VocalPitchEngine {
-    enum class Finish { NATURAL, POLISHED }
+    enum class Finish { NATURAL, POLISHED, ROBOTIC }
 
     data class Result(val samples: ShortArray, val correctedFrames: Int)
 
@@ -22,7 +22,8 @@ internal object VocalPitchEngine {
         key: Int,
         scale: Int,
         strength: Double,
-        finish: Finish
+        finish: Finish,
+        retuneSpeed: Double = 0.5
     ): Result {
         if (input.isEmpty() || strength <= 0.001) return Result(input, 0)
 
@@ -74,9 +75,10 @@ internal object VocalPitchEngine {
         val output = DoubleArray(input.size)
         val weights = DoubleArray(input.size)
         var corrected = 0
-        val maxCorrection = if (finish == Finish.NATURAL) 0.75 else 1.65
-        val confidenceGate = if (finish == Finish.NATURAL) 0.80 else 0.76
+        val maxCorrection = when (finish) { Finish.NATURAL -> 0.75; Finish.POLISHED -> 1.65; Finish.ROBOTIC -> 6.0 }
+        val confidenceGate = when (finish) { Finish.NATURAL -> 0.80; Finish.POLISHED -> 0.76; Finish.ROBOTIC -> 0.68 }
         val profileStrength = if (finish == Finish.NATURAL) 0.72 else 1.0
+        val vibratoPreservation = when (finish) { Finish.NATURAL -> 0.72; Finish.POLISHED -> 0.34; Finish.ROBOTIC -> 0.0 }
         var previousCorrection = 0.0
 
         for (frameIndex in 0 until frameCount) {
@@ -91,9 +93,8 @@ internal object VocalPitchEngine {
                 val target = nearestScaleNote(stableMidi[frameIndex], key, notes)
                 val raw = (target - stableMidi[frameIndex]).coerceIn(-maxCorrection, maxCorrection)
                 // Smooth correction motion so adjacent frames do not jump between notes.
-                val smoothing = if (finish == Finish.NATURAL) 0.24 else 0.42
+                val smoothing = (0.08 + retuneSpeed.coerceIn(0.0, 1.0) * 0.82)
                 val smoothed = previousCorrection + (raw - previousCorrection) * smoothing
-                val vibratoPreservation = if (finish == Finish.NATURAL) 0.72 else 0.34
                 semitoneShift = smoothed * strength.coerceIn(0.0, 1.0) * profileStrength * (1.0 - vibratoPreservation * (1.0 - pitch.confidence))
                 previousCorrection = semitoneShift
                 if (abs(semitoneShift) > 0.035) corrected++
