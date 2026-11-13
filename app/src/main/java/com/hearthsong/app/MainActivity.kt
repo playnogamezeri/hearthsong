@@ -908,7 +908,7 @@ class MainActivity : Activity() {
                                     if(entry.isDirectory)out.mkdirs() else{
                                         out.parentFile?.mkdirs()
                                         FileOutputStream(out).use{output->
-                                            val buffer=ByteArray(2048);var count=inputRead(zip,buffer)
+                                            val buffer=ByteArray(8192);var count=inputRead(zip,buffer)
                                             while(count>0){total+=count;if(total>180L*1024L*1024L)throw java.io.IOException("Speech model archive is unexpectedly large.");output.write(buffer,0,count);count=inputRead(zip,buffer)}
                                         }
                                     }
@@ -989,7 +989,7 @@ class MainActivity : Activity() {
                 }
                 audio.startRecording()
                 FileOutputStream(raw).use{output->
-                    val buffer=ByteArray(8192)
+                    val buffer=ByteArray(2048)
                     while(recordingActive){
                         val count=audio.read(buffer,0,buffer.size)
                         if(count>0){
