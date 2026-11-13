@@ -253,6 +253,23 @@ class MainActivity : Activity() {
             setSelection(prefs.getInt("autotune_output_finish", 0).coerceIn(0, 1))
         }
         panel.addView(finish)
+        section("DEFAULT HARMONY ARRANGEMENT")
+        val harmonyOptions = listOf(
+            "Two-Part Harmony · one higher + one lower backing voice",
+            "Higher backing voice only",
+            "Wide choir-style backing"
+        )
+        val harmony = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, harmonyOptions)
+            setSelection(prefs.getInt("harmony_arrangement", 0).coerceIn(0, 2))
+        }
+        panel.addView(harmony)
+        panel.addView(TextView(this).apply {
+            text = "Recommended default: two backing parts around your lead vocal. This preference is saved now; generated harmony audio is not active yet because the current recording combines voice and guitar into one mono track."
+            textSize = 12f
+            setTextColor(Color.GRAY)
+            setPadding(0, 5, 0, 8)
+        })
         panel.addView(TextView(this).apply {
             text = "These settings affect only new processed copies. Your original recordings are never overwritten. Live monitoring and live Auto-Tune remain off."
             textSize = 12f
@@ -267,13 +284,15 @@ class MainActivity : Activity() {
                     .putInt("audio_input_source", input.selectedItemPosition)
                     .putInt("autotune_output_strength", strength.selectedItemPosition)
                     .putInt("autotune_output_finish", finish.selectedItemPosition)
+                    .putInt("harmony_arrangement", harmony.selectedItemPosition)
                     .apply()
                 toast("Audio settings saved.")
             }
             .setNeutralButton("Reset") { _, _ ->
                 prefs.edit().putInt("audio_input_source", 0)
                     .putInt("autotune_output_strength", 1)
-                    .putInt("autotune_output_finish", 0).apply()
+                    .putInt("autotune_output_finish", 0)
+                    .putInt("harmony_arrangement", 0).apply()
                 toast("Audio settings reset to recommended defaults.")
             }
             .show()
