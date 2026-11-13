@@ -330,7 +330,7 @@ class MainActivity : Activity() {
             item.addView(TextView(this).apply{text=(index+1).toString()+".  "+recordingDateLabel(file).removePrefix("Recorded: ");textSize=12f;setTextColor(Color.GRAY)})
             val takeRow=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
             takeRow.addView(button(if(playingFile==file.absolutePath && player?.isPlaying==true)"Ⅱ Play" else "▶ Play"){playTake(file)},LinearLayout.LayoutParams(0,-2,1f))
-            takeRow.addView(button("Modifier"){showGenreModifier(file)},LinearLayout.LayoutParams(0,-2,1f))
+            takeRow.addView(button("Studio Enhance"){showGenreModifier(file)},LinearLayout.LayoutParams(0,-2,1f))
             takeRow.addView(button("Delete"){AlertDialog.Builder(this@MainActivity).setTitle("Delete recording?").setMessage("Permanently delete this saved take? This cannot be undone.").setNegativeButton("Cancel",null).setPositiveButton("Delete"){_,_->deleteTake(file)}.show()},LinearLayout.LayoutParams(0,-2,1f))
             item.addView(takeRow)
             item.addView(TextView(this).apply{text=file.name;textSize=10f;setTextColor(Color.DKGRAY);setPadding(4,0,4,0)})
@@ -366,101 +366,43 @@ class MainActivity : Activity() {
         GenreSound("Indie",AutoTuneProcessor.ToneSettings(bassDb=0.4,trebleDb=1.0,reverb=11.0,compression=20.0,formantColor=16.0,presenceDb=1.6,deEss=0.16,saturation=0.045))
     )
 
+    /**
+     * One-tap automatic enhancement. No genre selection or manual audio controls:
+     * the on-device engine analyzes the take and chooses a restrained whole-mix chain.
+     */
     private fun showGenreModifier(source: File) {
         if(source.extension.lowercase()!="wav"){
-            toast("Modifier currently supports WAV recordings. Your original recording is unchanged.")
+            toast("Studio Enhance currently supports WAV recordings. Your original is unchanged.")
             return
         }
-        val presets=genreSounds()
-        val picker=Spinner(this).apply{
-            adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,presets.map{it.name})
-        }
-        val controls=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,8,18,8)}
-        val scroll=ScrollView(this).apply{isFillViewport=false;addView(controls)}
-        val labels=listOf("Bass","Treble","Presence","Compression","Reverb","Vocal color","De-esser","Saturation")
-        val minimum=listOf(-6, -6, -3, 0, 0, 0, 0, 0)
-        val maximum=listOf(6, 6, 4, 100, 100, 100, 100, 35)
-        val bars=ArrayList<SeekBar>()
-        val values=ArrayList<TextView>()
-        fun readTone():AutoTuneProcessor.ToneSettings{
-            fun v(i:Int)=minimum[i]+bars[i].progress
-            return AutoTuneProcessor.ToneSettings(
-                bassDb=v(0).toDouble(),trebleDb=v(1).toDouble(),
-                presenceDb=v(2).toDouble(),compression=v(3).toDouble(),
-                reverb=v(4).toDouble(),formantColor=v(5).toDouble(),
-                deEss=v(6)/100.0,saturation=v(7)/100.0
-            )
-        }
-        fun setPreset(index:Int){
-            val t=presets[index].tone
-            val presetValues=listOf(t.bassDb.roundToInt(),t.trebleDb.roundToInt(),t.presenceDb.roundToInt(),t.compression.roundToInt(),t.reverb.roundToInt(),t.formantColor.roundToInt(),(t.deEss*100).roundToInt(),(t.saturation*100).roundToInt())
-            for(i in bars.indices){
-                bars[i].progress=(presetValues[i]-minimum[i]).coerceIn(0,maximum[i]-minimum[i])
-                values[i].text=labels[i]+" · "+formatModifierValue(i,minimum[i]+bars[i].progress)
-            }
-        }
-        for(i in labels.indices){
-            val value=TextView(this).apply{text=labels[i];textSize=12f;setTextColor(teal);setPadding(0,8,0,1)}
-            val bar=SeekBar(this).apply{max=maximum[i]-minimum[i]}
-            bar.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
-                override fun onProgressChanged(seekBar:SeekBar?,progress:Int,fromUser:Boolean){
-                    value.text=labels[i]+" · "+formatModifierValue(i,minimum[i]+progress)
+        AlertDialog.Builder(this)
+            .setTitle("♫ Automatic Studio Enhance")
+            .setMessage("I'll balance the recording automatically with gentle EQ, vocal presence, dynamic control, de-essing, light warmth, room ambience and safe output level. No sliders or technical choices. Your original recording stays untouched.")
+            .setNegativeButton("Cancel",null)
+            .setPositiveButton("Enhance recording"){_,_->
+                var output=File(filesDir,source.nameWithoutExtension+"_studio_enhanced.wav")
+                var suffix=2
+                while(output.exists()){
+                    output=File(filesDir,source.nameWithoutExtension+"_studio_enhanced_"+suffix+".wav")
+                    suffix++
                 }
-                override fun onStartTrackingTouch(seekBar:SeekBar?){}
-                override fun onStopTrackingTouch(seekBar:SeekBar?){}
-            })
-            values.add(value);bars.add(bar);controls.addView(value);controls.addView(bar)
-        }
-        controls.addView(TextView(this).apply{
-            text="Genre presets shape the whole mono recording with tone, presence, compression, de-essing, saturation and reverb. Fine-tune the sliders after choosing a starting sound."
-            textSize=12f;setTextColor(Color.DKGRAY);setPadding(0,10,0,8)
-        })
-        picker.onItemSelectedListener=object:android.widget.AdapterView.OnItemSelectedListener{
-            override fun onNothingSelected(parent:android.widget.AdapterView<*>?){}
-            override fun onItemSelected(parent:android.widget.AdapterView<*>?,view:View?,position:Int,id:Long){setPreset(position)}
-        }
-        setPreset(0)
-        val panel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(12,4,12,4)}
-        panel.addView(TextView(this).apply{text="Choose a genre starting point, then adjust the sound controls. Modifier creates a new copy and keeps the original recording.";textSize=13f;setTextColor(Color.DKGRAY);setPadding(0,0,0,8)})
-        panel.addView(picker)
-        panel.addView(scroll,LinearLayout.LayoutParams(-1,(340*resources.displayMetrics.density).toInt()))
-        AlertDialog.Builder(this).setTitle("♫ Modifier by Genre").setView(panel)
-            .setNegativeButton("Cancel",null).setPositiveButton("Apply",null).create().also{dialog->
-                dialog.setOnShowListener{
-                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
-                        val genre=presets[picker.selectedItemPosition].name
-                        val tone=readTone()
-                        val slug=genre.lowercase().replace(Regex("[^a-z0-9]+"),"")
-                        var output=File(filesDir,source.nameWithoutExtension+"_modifier_"+slug+".wav")
-                        var suffix=2
-                        while(output.exists()){output=File(filesDir,source.nameWithoutExtension+"_modifier_"+slug+"_"+suffix+".wav");suffix++}
-                        dialog.dismiss()
-                        toast("Applying "+genre+" Modifier…")
-                        thread(name="JacksRePOGenreModifier"){
-                            try{
-                                AutoTuneProcessor.process(source,output,0,2,0.0,tone)
-                                runOnUiThread{
-                                    if(output.exists()){toast(genre+" Modifier copy saved.");renderLibrary()}
-                                    else toast("Modifier could not save the new copy.")
-                                }
-                            }catch(e:Exception){
-                                output.delete()
-                                runOnUiThread{toast("Modifier failed: "+(e.message?:"audio processing error"))}
-                            }
+                toast("Analyzing and enhancing your recording…")
+                thread(name="JacksREPOAutoStudioEnhance"){
+                    try{
+                        AutoTuneProcessor.autoEnhance(source,output)
+                        runOnUiThread{
+                            if(output.exists()){
+                                toast("Studio-enhanced copy saved. Original preserved.")
+                                renderLibrary()
+                            }else toast("Studio Enhance could not save the new copy.")
                         }
+                    }catch(e:Exception){
+                        output.delete()
+                        runOnUiThread{toast("Studio Enhance failed: "+(e.message?:"audio processing error"))}
                     }
                 }
-                dialog.show()
-            }
+            }.show()
     }
-
-    private fun formatModifierValue(index:Int,value:Int):String=when(index){
-        0,1,2->(if(value>0)"+" else "")+value+" dB"
-        3,4,5->value+"%"
-        6->value+"%"
-        else->value+"%"
-    }
-
 
     private fun showAutoTuneSettings(source: File) {
         if (source.extension.lowercase() != "wav") {
