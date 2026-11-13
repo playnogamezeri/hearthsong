@@ -41,6 +41,44 @@ internal object AutoTuneProcessor {
         val confidence=if(best>0)((best-second).coerceAtLeast(0.0)/best).coerceIn(0.0,1.0)else 0.0
         return KeyEstimate(bestKey,bestScale,confidence,valid)
     }
+    /**
+     * Automatic one-tap whole-mix enhancement for the app's voice-and-guitar recordings.
+     * The analysis is deliberately conservative: it measures level, crest factor and
+     * zero-crossing rate, then selects a mild tone/dynamics chain without user controls.
+     */
+    fun autoEnhance(input: File, output: File): Int {
+        val (rate, samples) = readMonoWav(input)
+        if (samples.size < 2048) error("The recording is too short to enhance.")
+        var sumSquares = 0.0
+        var peak = 0.0
+        var crossings = 0
+        var previous = samples[0].toInt()
+        for (sample in samples) {
+            val value = sample.toDouble() / 32768.0
+            sumSquares += value * value
+            peak = max(peak, abs(value))
+            val current = sample.toInt()
+            if ((current >= 0 && previous < 0) || (current < 0 && previous >= 0)) crossings++
+            previous = current
+        }
+        val rms = sqrt(sumSquares / samples.size).coerceAtLeast(1e-6)
+        val crestDb = (20.0 * log10((peak / rms).coerceAtLeast(1.0))).coerceIn(0.0, 18.0)
+        val crossingRate = crossings.toDouble() / samples.size
+        // Bright/noisy takes get gentler top-end and more sibilance control.
+        val bright = crossingRate > 0.16
+        val tone = ToneSettings(
+            bassDb = 0.4,
+            trebleDb = if (bright) -0.35 else 0.65,
+            reverb = 7.0,
+            compression = (18.0 + crestDb * 1.35).coerceIn(18.0, 42.0),
+            formantColor = 7.0,
+            presenceDb = if (bright) 0.45 else 1.15,
+            deEss = if (bright) 0.42 else 0.28,
+            saturation = 0.025
+        )
+        return process(input, output, 0, 2, 0.0, tone)
+    }
+
     fun process(input: File, output: File, key: Int, scale: Int, strength: Double, tone: ToneSettings, transposeSemitones: Int = 0, finish: VocalPitchEngine.Finish = VocalPitchEngine.Finish.NATURAL): Int {
         RandomAccessFile(input, "r").use { raf ->
             if (raf.length() < 44 || readAscii(raf,0,4)!="RIFF" || readAscii(raf,8,4)!="WAVE") error("Only standard WAV recordings are supported.")
