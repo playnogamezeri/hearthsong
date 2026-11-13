@@ -11,6 +11,14 @@ for (let index = 0; index < inlineScripts.length; index++) {
   console.log("PASS: inline JavaScript block " + (index + 1) + " parses");
 }
 
+const ids = [...html.matchAll(/\bid=["']([^"']+)["']/g)].map(match => match[1]);
+const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
+if (duplicateIds.length) throw new Error("Duplicate HTML IDs: " + [...new Set(duplicateIds)].join(", "));
+if ((html.match(/<nav\b/g) || []).length !== 1) throw new Error("Expected exactly one main navigation row.");
+if ((html.match(/<footer\b/g) || []).length !== 1) throw new Error("Expected exactly one footer.");
+if (/<footer[^>]*>[\s\S]*?<\/main>/i.test(html)) throw new Error("Malformed footer closing tag.");
+console.log("PASS: unique IDs and clean page structure");
+
 const requiredIds = [
   "songTitle", "lyrics", "saveSong", "openPerformance", "lyricStage",
   "stageLyrics", "scrollSpeed", "scrollToggle", "recordButton",
