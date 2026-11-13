@@ -949,7 +949,7 @@ class MainActivity : Activity() {
         recordingActive=true;recognitionEnabled=true;lastRecognizedPhrase="";recordingStartedAt=stamp
         updateRecordButton(true)
         popupPerformanceButton?.isEnabled=true
-        popupPerformanceButton?.text="■ Stop Performance"
+        popupPerformanceButton?.text=if(popupRecordingLabel.contains("Recording"))"■ Stop Recording" else "■ Stop Performance"
         popupAutoTuneButton?.isEnabled=true
         popupTimer?.text="REC  00:00"
         popupStatus?.text=if(liveAutoTuneEnabled)"Recording locally with live pitch correction ON." else if(voskModel!=null)"Recording locally. Lyric matching runs on this same microphone audio." else if(modelLoading)"Recording locally. Preparing offline lyric matching in the background." else "Recording locally. Offline lyric matching is unavailable; audio recording will continue."
@@ -1008,7 +1008,7 @@ class MainActivity : Activity() {
                 runOnUiThread{
                     performanceAudio=null;performanceThread=null;recordingActive=false;performanceFinalizing=false
                     handler.removeCallbacks(timerTick);updateRecordButton(false)
-                    popupPerformanceButton?.isEnabled=true;popupPerformanceButton?.text=popupRecordingLabel;popupTimer?.text="REC  00:00"
+                    popupPerformanceButton?.isEnabled=true;popupPerformanceButton?.text=popupRecordingLabel;popupTimer?.text="REC  00:00";liveAutoTuneEnabled=false;popupAutoTuneButton?.isEnabled=true;popupAutoTuneButton?.text="Auto-Tune OFF"
                     popupStatus?.text=if(final.exists())"Performance saved on this phone. "+if(recognitionFailed)"Audio was saved; lyric matching was unavailable." else "Audio and lyric-following session saved." else "Recording could not be saved."
                     status.text=if(final.exists())"Performance saved locally: "+final.name else "Performance recording failed."
                     renderLibrary()
@@ -1019,6 +1019,7 @@ class MainActivity : Activity() {
                     performanceAudio=null;performanceThread=null;recordingActive=false;performanceFinalizing=false
                     handler.removeCallbacks(timerTick);updateRecordButton(false)
                     popupPerformanceButton?.isEnabled=true;popupPerformanceButton?.text=popupRecordingLabel
+                    liveAutoTuneEnabled=false;popupAutoTuneButton?.isEnabled=true;popupAutoTuneButton?.text="Auto-Tune OFF"
                     popupStatus?.text="Recording stopped unexpectedly: "+(e.message?:"microphone error")
                     status.text="Performance recording failed."
                 }
