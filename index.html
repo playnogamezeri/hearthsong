@@ -66,7 +66,7 @@ footer{text-align:center;color:#81908d;font-size:11px;padding:24px 0 5px}
 <div class="app">
 <header><div class="logo">♫</div><div><h1>Jack's RePO</h1><div class="tag">Your personal creative studio</div></div></header>
 <div class="hero"><h2>Your songs.<br>Your voice. Your space.</h2><p>Write something honest, record it, and keep every take.</p></div>
-<nav><button id="writeTab" class="active">✎ Write & Record</button><button id="libraryTab">♫ My Songs</button><button id="settingsTab">⚙ Settings</button></nav><nav><button id="writeTab" class="active">✎ Write & Record</button><button id="libraryTab">♫ My Songs</button></nav>
+<nav aria-label="Main navigation"><button id="writeTab" class="active">✎ Write & Record</button><button id="libraryTab">♫ My Songs</button><button id="settingsTab">⚙ Settings</button></nav>
 <main id="writePage">
 <section class="card">
  <div class="eyebrow">01 / Your song</div>
@@ -94,7 +94,7 @@ footer{text-align:center;color:#81908d;font-size:11px;padding:24px 0 5px}
 "></textarea>
  <div class="row" style="margin-top:10px"><button class="secondary" id="writeAutotune" aria-pressed="false">🎙 Auto-Tune: OFF</button><button class="secondary" id="openSettingsFromWrite">⚙ Auto-Tune settings</button></div>
  <div class="status" id="writeTuneStatus" aria-live="polite">Auto-Tune is off. Turn it on before recording to tune the captured voice.</div>
- <button class="secondary full performance-launch" id="openPerformance">♫ Open lyric performance mode</button> <button class="secondary full performance-launch" id="openPerformance">♫ Open lyric performance mode</button>
+ <button class="secondary full performance-launch" id="openPerformance">♫ Open lyric performance mode</button>
  <p class="muted">Performance mode keeps your lyrics large and readable. Manual scrolling is available; private on-device voice following is available in the Android app.</p>
  <label for="songNotes">Notes (optional)</label>
  <textarea id="songNotes" style="min-height:85px;font:14px/1.5 system-ui" placeholder="Ideas, melody notes, guitar chords, or anything you want to remember…"></textarea>
@@ -123,7 +123,7 @@ footer{text-align:center;color:#81908d;font-size:11px;padding:24px 0 5px}
  <div class="stage-top"><strong id="stageTitle">Your song</strong><button class="secondary" id="closePerformance">Close ✕</button></div>
  <div class="stage-controls">
   <label>Scroll speed <input id="scrollSpeed" type="range" min="0" max="36" step="1" value="10"><span id="scrollSpeedValue">10</span></label>
-  <button class="secondary" id="scrollToggle">Start timed scroll</button>
+  
   <button class="secondary" id="stageAutotune" aria-pressed="false">🎙 Auto-Tune: OFF</button>  <button class="secondary" id="scrollToggle">Start timed scroll</button>
  </div>
  <div id="stageLyrics">Your lyrics will appear here.</div>
