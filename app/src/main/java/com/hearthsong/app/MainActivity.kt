@@ -908,7 +908,7 @@ class MainActivity : Activity() {
                                     if(entry.isDirectory)out.mkdirs() else{
                                         out.parentFile?.mkdirs()
                                         FileOutputStream(out).use{output->
-                                            val buffer=ByteArray(8192);var count=inputRead(zip,buffer)
+                                            val buffer=ByteArray(2048);var count=inputRead(zip,buffer)
                                             while(count>0){total+=count;if(total>180L*1024L*1024L)throw java.io.IOException("Speech model archive is unexpectedly large.");output.write(buffer,0,count);count=inputRead(zip,buffer)}
                                         }
                                     }
@@ -962,6 +962,7 @@ class MainActivity : Activity() {
         val final=File(filesDir,"take_$stamp.wav")
         performanceRawFile=raw;performanceFinalFile=final
         liveTuneSettings=loadLiveTuneSettings()
+        karaokePresetIndex=prefs.getInt("karaoke_preset",0).coerceIn(0,3)
         liveTuneEngine.configure(liveTuneSettings)
         liveTuneEngine.reset()
         recordingActive=true;recognitionEnabled=true;lastRecognizedPhrase="";recordingStartedAt=stamp
@@ -1026,6 +1027,7 @@ class MainActivity : Activity() {
                 writeWav(raw,final,sampleRate)
                 raw.delete()
                 runOnUiThread{
+                    stopLiveMonitor();liveMonitorEnabled=false;popupMonitorButton?.text="🎧 Monitor OFF"
                     performanceAudio=null;performanceThread=null;recordingActive=false;performanceFinalizing=false
                     handler.removeCallbacks(timerTick);updateRecordButton(false)
                     popupPerformanceButton?.isEnabled=true;popupPerformanceButton?.text=popupRecordingLabel;popupTimer?.text="REC  00:00";liveAutoTuneEnabled=false;popupAutoTuneButton?.isEnabled=true;popupAutoTuneButton?.text="Auto-Tune OFF"
@@ -1036,6 +1038,7 @@ class MainActivity : Activity() {
             }catch(e:Exception){
                 raw.delete()
                 runOnUiThread{
+                    stopLiveMonitor();liveMonitorEnabled=false;popupMonitorButton?.text="🎧 Monitor OFF"
                     performanceAudio=null;performanceThread=null;recordingActive=false;performanceFinalizing=false
                     handler.removeCallbacks(timerTick);updateRecordButton(false)
                     popupPerformanceButton?.isEnabled=true;popupPerformanceButton?.text=popupRecordingLabel
