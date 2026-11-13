@@ -23,7 +23,7 @@ internal object VocalPitchEngine {
         scale: Int,
         strength: Double,
         finish: Finish,
-        retuneSpeed: Double = 0.5
+        retuneSpeed: Double = if (finish == Finish.NATURAL) 0.195 else 0.415
     ): Result {
         if (input.isEmpty() || strength <= 0.001) return Result(input, 0)
 
