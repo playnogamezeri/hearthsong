@@ -152,6 +152,7 @@ class MainActivity : Activity() {
         addHomeChoice("✍  Write Lyrics","Create a song, shape your words, and save your lyrics."){showPage(false)}
         addHomeChoice("🎤  Sing Lyrics","Open a clean lyric-following screen for singing practice. No guitar recording."){showLyrics(false)}
         addHomeChoice("🎸  Sing & Play Guitar","Follow your lyrics while recording your voice and guitar together."){showLyrics(true);startPerformance()}
+        addHomeChoice("⚙  Audio & Auto-Tune Settings","Choose your recording microphone input and how strongly finished vocals are tuned."){showAudioSettings()}
         homePage.addView(button("My Songs & Recordings"){showPage(true)})
         editorPage=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;visibility=View.GONE}
         libraryPage=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;visibility=View.GONE}
@@ -187,6 +188,95 @@ class MainActivity : Activity() {
         setContentView(page)
         renderLibrary()
         status.text="Offline lyric recognition uses a speech model stored on this phone. The first setup needs internet to download it."
+    }
+
+    /**
+     * Central audio preferences. Input selection changes the Android microphone
+     * capture source; output preferences are applied only after recording stops.
+     * Standard MIC is the safest choice for simultaneous singing and guitar.
+     */
+    private fun showAudioSettings() {
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(20, 16, 20, 12)
+            setBackgroundColor(Color.WHITE)
+        }
+        panel.addView(TextView(this).apply {
+            text = "⚙  Audio & Auto-Tune Settings"
+            textSize = 21f
+            setTextColor(teal)
+            setTypeface(null, Typeface.BOLD)
+        })
+        panel.addView(TextView(this).apply {
+            text = "Set these once. Recording stays clean and unprocessed; your choices are applied to the finished copy only."
+            textSize = 13f
+            setTextColor(Color.DKGRAY)
+            setPadding(0, 6, 0, 14)
+        })
+        fun section(label: String) {
+            panel.addView(TextView(this).apply {
+                text = label
+                textSize = 12f
+                setTextColor(teal)
+                setTypeface(null, Typeface.BOLD)
+                setPadding(0, 8, 0, 5)
+            })
+        }
+        section("RECORDING INPUT")
+        val inputOptions = listOf(
+            "Standard microphone · voice + guitar (recommended)",
+            "Voice recognition · may reduce background/instrument sound",
+            "Camcorder microphone processing"
+        )
+        val input = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, inputOptions)
+            setSelection(prefs.getInt("audio_input_source", 0).coerceIn(0, 2))
+        }
+        panel.addView(input)
+        panel.addView(TextView(this).apply {
+            text = "For singing while playing guitar, keep Standard microphone selected. Voice-recognition processing can mistake guitar for noise."
+            textSize = 12f
+            setTextColor(Color.GRAY)
+            setPadding(0, 5, 0, 8)
+        })
+        section("AUTO-TUNE OUTPUT STRENGTH")
+        val strengths = listOf("Gentle · preserve my natural voice", "Balanced · polished but natural (recommended)", "Strong · tighter pop-style correction")
+        val strength = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, strengths)
+            setSelection(prefs.getInt("autotune_output_strength", 1).coerceIn(0, 2))
+        }
+        panel.addView(strength)
+        section("DEFAULT FINISH")
+        val finishes = listOf("Natural & Expressive", "Polished Pop / Hip-Hop")
+        val finish = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, finishes)
+            setSelection(prefs.getInt("autotune_output_finish", 0).coerceIn(0, 1))
+        }
+        panel.addView(finish)
+        panel.addView(TextView(this).apply {
+            text = "These settings affect only new processed copies. Your original recordings are never overwritten. Live monitoring and live Auto-Tune remain off."
+            textSize = 12f
+            setTextColor(Color.GRAY)
+            setPadding(0, 12, 0, 4)
+        })
+        AlertDialog.Builder(this)
+            .setView(panel)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Save settings") { _, _ ->
+                prefs.edit()
+                    .putInt("audio_input_source", input.selectedItemPosition)
+                    .putInt("autotune_output_strength", strength.selectedItemPosition)
+                    .putInt("autotune_output_finish", finish.selectedItemPosition)
+                    .apply()
+                toast("Audio settings saved.")
+            }
+            .setNeutralButton("Reset") { _, _ ->
+                prefs.edit().putInt("audio_input_source", 0)
+                    .putInt("autotune_output_strength", 1)
+                    .putInt("autotune_output_finish", 0).apply()
+                toast("Audio settings reset to recommended defaults.")
+            }
+            .show()
     }
 
     private fun showPage(showLibrary:Boolean){
@@ -436,7 +526,7 @@ class MainActivity : Activity() {
         val finishes = listOf("Natural & Expressive", "Polished Pop / Hip-Hop")
         val finishMode = Spinner(this).apply {
             adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, finishes)
-            setSelection(0)
+            setSelection(prefs.getInt("autotune_output_finish", 0).coerceIn(0, 1))
         }
         panel.addView(finishMode)
 
@@ -521,8 +611,14 @@ class MainActivity : Activity() {
                     intArrayOf(50,58,8,35,45,100)
                 )
                 val v = configs[selectedStyle]
-                val finish = if (finishMode.selectedItemPosition == 1) VocalPitchEngine.Finish.POLISHED else VocalPitchEngine.Finish.NATURAL
-                val baseAmount = v[5] / 100.0
+                val finishChoice = prefs.getInt("autotune_output_finish", 0).coerceIn(0, 1)
+                val finish = if (finishChoice == 1) VocalPitchEngine.Finish.POLISHED else VocalPitchEngine.Finish.NATURAL
+                val strengthMultiplier = when (prefs.getInt("autotune_output_strength", 1).coerceIn(0, 2)) {
+                    0 -> 0.72
+                    2 -> 1.18
+                    else -> 1.0
+                }
+                val baseAmount = (v[5] / 100.0 * strengthMultiplier).coerceIn(0.0, 1.0)
                 val amount = if (finish == VocalPitchEngine.Finish.POLISHED && selectedStyle != 11) maxOf(baseAmount, 0.78) else baseAmount
                 val tone = AutoTuneProcessor.ToneSettings(
                     bassDb = (v[0] - 50) * 0.12,
@@ -929,7 +1025,12 @@ class MainActivity : Activity() {
         val minBuffer=AudioRecord.getMinBufferSize(sampleRate,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT)
         if(minBuffer<=0){popupStatus?.text="Microphone is unavailable on this phone.";return}
         val bufferSize=maxOf(minBuffer*2,8192)
-        val audio=try{AudioRecord(MediaRecorder.AudioSource.MIC,sampleRate,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT,bufferSize)}catch(e:Exception){
+        val selectedInput = when (prefs.getInt("audio_input_source", 0)) {
+            1 -> MediaRecorder.AudioSource.VOICE_RECOGNITION
+            2 -> MediaRecorder.AudioSource.CAMCORDER
+            else -> MediaRecorder.AudioSource.MIC
+        }
+        val audio=try{AudioRecord(selectedInput,sampleRate,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT,bufferSize)}catch(e:Exception){
             popupStatus?.text="Could not open the microphone: "+(e.message?:"unknown error");return
         }
         if(audio.state!=AudioRecord.STATE_INITIALIZED){audio.release();popupStatus?.text="Microphone could not be initialized.";return}
